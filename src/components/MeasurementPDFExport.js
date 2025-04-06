@@ -43,30 +43,35 @@ const styles = StyleSheet.create({
   table: {
     display: 'table',
     width: '100%',
-    borderStyle: 'none',
+    borderStyle: 'solid',
+    borderWidth: 1,
+    borderColor: '#000',
   },
   tableRow: {
     flexDirection: 'row',
     borderStyle: 'none',
-    marginBottom: 2,
+    marginBottom: 0,
   },
   tableHeaderRow: {
     flexDirection: 'row',
-    borderBottomWidth: 0.5,
+    borderBottomWidth: 1,
     borderBottomColor: '#000',
     borderBottomStyle: 'solid',
     backgroundColor: '#f2f2f2',
-    marginBottom: 4,
+    marginBottom: 0,
   },
   tableColHeader: {
     padding: 3,
     fontWeight: 'bold',
     textAlign: 'center',
-    borderStyle: 'none',
+    // Removed the right border for column headers
   },
   tableCol: {
     padding: 3,
-    borderStyle: 'none',
+    // Removed the right border for cells
+  },
+  lastTableCol: {
+    padding: 3,
   },
   srNoCol: { width: '5%' },
   itemNoCol: { width: '8%' },
@@ -79,18 +84,21 @@ const styles = StyleSheet.create({
   floorCol: { width: '15%' }, // Increased width for floor/lift
   emptyCol: {
     padding: 3,
-    borderStyle: 'none',
+    // Removed the right border
   },
   itemRow: {
     backgroundColor: '#f9f9f9',
-    marginTop: 2,
-    marginBottom: 2,
+    marginTop: 0,
+    marginBottom: 0,
+    borderTopWidth: 1,
+    borderTopColor: '#000',
+    borderTopStyle: 'solid',
   },
   totalRow: {
     flexDirection: 'row',
     borderBottomWidth: 0,
     fontWeight: 'bold',
-    marginTop: 2,
+    marginTop: 0,
   },
   rightAlign: {
     textAlign: 'right',
@@ -113,11 +121,11 @@ const styles = StyleSheet.create({
   },
   netQuantityRow: {
     flexDirection: 'row',
-    borderTopWidth: 0.5,
+    borderTopWidth: 1,
     borderTopColor: '#000',
     borderTopStyle: 'solid',
     fontWeight: 'bold',
-    marginTop: 4,
+    marginTop: 0,
     paddingTop: 2,
   },
   netQuantityText: {
@@ -129,9 +137,19 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: 'bold',
   },
+  netQuantityUnit: {
+    textAlign: 'center',
+    fontWeight: 'bold',
+  },
   floorLiftText: {
     textAlign: 'center',
     fontSize: 9,
+  },
+  spacerRow: {
+    height: 10, // Space after each net quantity
+    borderTopWidth: 1,
+    borderTopColor: '#000',
+    borderTopStyle: 'solid',
   }
 });
 
@@ -179,7 +197,7 @@ const MeasurementPDF = ({ workOrderId, nameOfWork, items }) => (
           <View style={[styles.tableColHeader, styles.qtyCol]}>
             <Text>Quantity</Text>
           </View>
-          <View style={[styles.tableColHeader, styles.floorCol]}>
+          <View style={[styles.tableColHeader, styles.floorCol, styles.lastTableCol]}>
             <Text>Floor Rise/Lift</Text>
           </View>
         </View>
@@ -213,7 +231,7 @@ const MeasurementPDF = ({ workOrderId, nameOfWork, items }) => (
               <View style={[styles.tableCol, styles.qtyCol]}>
                 <Text></Text>
               </View>
-              <View style={[styles.tableCol, styles.floorCol, styles.floorLiftText]}>
+              <View style={[styles.tableCol, styles.floorCol, styles.floorLiftText, styles.lastTableCol]}>
                 <Text>{item.floorLiftRise || ''}</Text>
               </View>
             </View>
@@ -247,7 +265,7 @@ const MeasurementPDF = ({ workOrderId, nameOfWork, items }) => (
                 <View style={[styles.tableCol, styles.qtyCol, styles.textAlign]}>
                   <Text>{m.quantity}</Text>
                 </View>
-                <View style={[styles.tableCol, styles.floorCol, styles.floorLiftText]}>
+                <View style={[styles.tableCol, styles.floorCol, styles.floorLiftText, styles.lastTableCol]}>
                   <Text>{m.floorLiftRise || ''}</Text>
                 </View>
               </View>
@@ -255,19 +273,31 @@ const MeasurementPDF = ({ workOrderId, nameOfWork, items }) => (
             
             {/* Net Quantity Row */}
             {item.measurements && item.measurements.length > 0 && (
-              <View style={styles.netQuantityRow}>
-                <View style={[styles.tableCol, { width: '79%' }, styles.netQuantityText]}>
-                  <Text>Net Quantity:</Text>
+              <React.Fragment>
+                <View style={styles.netQuantityRow}>
+                  <View style={[{ width: '72%', padding: 3 }, styles.netQuantityText]}>
+                    <Text>Net Quantity:</Text>
+                  </View>
+                  <View style={[{ width: '10%', padding: 3 }, styles.netQuantityValue]}>
+                    <Text>{calculateTotalQuantity(item.measurements)}</Text>
+                  </View>
+                  <View style={[{ width: '3%', padding: 3, textAlign: 'center' }, styles.netQuantityUnit]}>
+                    <Text>{item.unit || item.measurements[0]?.unit || ''}</Text>
+                  </View>
+                  <View style={[{ width: '15%', padding: 3 }, styles.lastTableCol]}>
+                    <Text></Text>
+                  </View>
                 </View>
-                <View style={[styles.tableCol, styles.qtyCol, styles.netQuantityValue]}>
-          <Text>
-            {calculateTotalQuantity(item.measurements)} {item.measurements[0]?.smallUnit || item.smallUnit || ''}
-          </Text>
-        </View>
-                <View style={[styles.tableCol, styles.floorCol]}>
-                  <Text></Text>
+                
+                {/* Add spacer row after each item */}
+                <View style={styles.spacerRow}>
+                  <View style={{ flexDirection: 'row' }}>
+                    <View style={[{ width: '100%' }]}>
+                      <Text> </Text>
+                    </View>
+                  </View>
                 </View>
-              </View>
+              </React.Fragment>
             )}
           </React.Fragment>
         ))}

@@ -260,10 +260,10 @@ const MeasurementPDF = ({ workOrderId, nameOfWork, items }) => (
                   <Text>Net Quantity:</Text>
                 </View>
                 <View style={[styles.tableCol, styles.qtyCol, styles.netQuantityValue]}>
-                  <Text>
-                    {calculateTotalQuantity(item.measurements)} {item.measurements[0]?.smallUnit || item.smallUnit || ''}
-                  </Text>
-                </View>
+          <Text>
+            {calculateTotalQuantity(item.measurements)} {item.measurements[0]?.smallUnit || item.smallUnit || ''}
+          </Text>
+        </View>
                 <View style={[styles.tableCol, styles.floorCol]}>
                   <Text></Text>
                 </View>

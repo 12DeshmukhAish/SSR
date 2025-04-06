@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import Stepper from './Stepper';
 
 const EditEstimatePage = () => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -52,11 +53,24 @@ const EditEstimatePage = () => {
   ];
   
   const areas = [
-    { value: "Corporation Area", label: "Corporation Area" },
-    { value: "Muncipal Council Area", label: "Muncipal Council Area" },
-    { value: "For Mumbai/Brahan Mumbai", label: "For Mumbai/Brahan Mumbai" },
-    { value: "Inaccessible Areas", label: "Inaccessible Areas" },
-    { value: "General Area", label: "General Area" }
+    { value: "", label: "Select Area", percentage: "0" },
+    { value: "Corporation Area", label: "Corporation Area", percentage: "0" },
+    { value: "Muncipal Council Area", label: "Muncipal Council Area", percentage: "0" },
+    { value: "For Mumbai/Brahan Mumbai", label: "For Mumbai/Brahan Mumbai", percentage: "0" },
+    { value: "Sugarcane Factory Area (Within 10 KM radius)", label: "Sugarcane Factory Area (Within 10 KM radius)", percentage: "5" },
+    { value: "Notified Tribal Areas", label: "Notified Tribal Areas", percentage: "0" },
+    { value: "Hilly Areas", label: "Hilly Areas", percentage: "0" },
+    { value: "Inaccessible Areas", label: "Inaccessible Areas", percentage: "0" },
+    { value: "Inside Premises of Central Jail", label: "Inside Premises of Central Jail", percentage: "0" },
+    { value: "Mental Hospital", label: "Mental Hospital", percentage: "0" },
+    { value: "Raj Bhawan", label: "Raj Bhawan", percentage: "0" },
+    { value: "Yerawada Printing Presses", label: "Yerawada Printing Presses", percentage: "15" },
+    { value: "Tiger Project Area in Maleghat", label: "Tiger Project Area in Maleghat", percentage: "20" },
+    { value: "Coal / Lime Mining Area", label: "Coal / Lime Mining Area", percentage: "0" },
+    { value: "Naxelite Affected Area", label: "Naxelite Affected Area", percentage: "10" },
+    { value: "Metropolitan areas notified by UDD excluding Municipal Corporation and Council areas", label: "Metropolitan areas notified by UDD excluding Municipal Corporation and Council areas", percentage: "0" },
+    { value: "General Area", label: "General Area", percentage: "0" },
+    { value: "abcs", label: "abcs", percentage: "5" }
   ];
 
   useEffect(() => {
@@ -135,17 +149,22 @@ const EditEstimatePage = () => {
     return true;
   };
 
-  const nextStep = () => {
-    if (currentStep === 1 && !validateStep1()) {
+
+  const handleNextStep = (stepId) => {
+    if (stepId === 2 && !validateStep1()) {
       return;
     }
-    setCurrentStep(2);
+    setCurrentStep(stepId);
   };
-
+  
   const prevStep = () => {
     setCurrentStep(1);
   };
-
+  const nextStep = () => {
+    if (!validateStep1()) return;
+    setCurrentStep(2);
+  };
+  
   const getFormattedDate = () => {
     const now = new Date();
     
@@ -237,14 +256,18 @@ const EditEstimatePage = () => {
     <div className="relative">
       {/* Progress Bar */}
       <div className="h-1 bg-gray-200 w-full mt-4">
-        <div 
-          className="h-full bg-blue-500 transition-all duration-300 relative"
-          style={{ width: currentStep === 1 ? '50%' : '100%' }}
-        >
-          <span className="absolute -top-6 left-0 text-xs font-medium text-blue-700">
-            Step {currentStep}
-          </span>
-        </div>
+      <Stepper 
+  currentStep={currentStep} 
+  onStepClick={(stepId) => {
+    if (stepId < currentStep) {
+      setCurrentStep(stepId); // Go back freely
+    } else {
+      handleNextStep(stepId); // Apply forward step validation
+    }
+  }} 
+/>
+
+      
       </div>
 
       {/* Form Container */}
@@ -462,7 +485,7 @@ const EditEstimatePage = () => {
         </button>
         
         <button 
-          className="w-12 h-12 rounded-full bg-green-600 text-white shadow-lg flex items-center justify-center hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 relative group"
+          className="w-12 h-12 rounded-full bg-blue-600 text-white shadow-lg flex items-center justify-center hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 relative group"
           title="Contact"
         >
           <span className="absolute right-full mr-3 whitespace-nowrap bg-gray-800 text-white text-sm px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200">

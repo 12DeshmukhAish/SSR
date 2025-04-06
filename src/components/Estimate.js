@@ -20,6 +20,8 @@ const EstimateForm = () => {
   const [chapters, setChapters] = useState([]);
   const [isMultipleFloor, setIsMultipleFloor] = useState(false);
   const [showMultipleFloorCheckbox, setShowMultipleFloorCheckbox] = useState(false);
+  const [formResetKey, setFormResetKey] = useState(0);
+
 
   
   // JWT Token - In production, store this securely and not hard-coded
@@ -82,6 +84,17 @@ const EstimateForm = () => {
       generateCustomID();
     }
   }, [selectedState]);
+  useEffect(() => {
+    setWorkName(localStorage.getItem("form_workName") || "");
+    setSelectedState(localStorage.getItem("form_selectedState") || "");
+    setSelectedDept(localStorage.getItem("form_selectedDept") || "");
+    setSelectedSSR(localStorage.getItem("form_selectedSSR") || "");
+    setSelectedChapter(localStorage.getItem("form_selectedChapter") || "");
+    setSelectedArea(localStorage.getItem("form_selectedArea") || "General Area");
+    setPreparedBySignature(localStorage.getItem("form_preparedBySignature") || "");
+    setCheckedBySignature(localStorage.getItem("form_checkedBySignature") || "");
+  }, []);
+  
   
   // Handle area change
   const handleAreaChange = (e) => {
@@ -390,8 +403,11 @@ const EstimateForm = () => {
                     id="workname" 
                     className="w-full p-2 border border-gray-300 rounded-md" 
                     value={workName}
-                    onChange={(e) => setWorkName(e.target.value)}
-                    required
+                    onChange={(e) => {
+                      setWorkName(e.target.value);
+                      localStorage.setItem("form_workName", e.target.value);
+                    }}
+                    
                   />
                 </div>
                 
@@ -402,8 +418,11 @@ const EstimateForm = () => {
                       id="state" 
                       className="w-full p-2 border border-gray-300 rounded-md"
                       value={selectedState}
-                      onChange={(e) => setSelectedState(e.target.value)}
-                      required
+                      onChange={(e) => {
+                        setSelectedState(e.target.value);
+                        localStorage.setItem("form_selectedState", e.target.value);
+                      }}
+                      
                     >
                       {states.map((state) => (
                         <option key={state.value} value={state.value} data-tin={state.tin}>
@@ -419,8 +438,11 @@ const EstimateForm = () => {
                       id="dept" 
                       className="w-full p-2 border border-gray-300 rounded-md"
                       value={selectedDept}
-                      onChange={(e) => setSelectedDept(e.target.value)}
-                      required
+                      onChange={(e) => {
+                        setSelectedDept(e.target.value);
+                        localStorage.setItem("form_selectedDept", e.target.value);
+                      }}
+                      
                     >
                       {departments.map((dept) => (
                         <option key={dept.value} value={dept.value}>
@@ -464,8 +486,11 @@ const EstimateForm = () => {
                       id="ssr" 
                       className="w-full p-2 border border-gray-300 rounded-md"
                       value={selectedSSR}
-                      onChange={(e) => setSelectedSSR(e.target.value)}
-                      required
+                      onChange={(e) => {
+                        setSelectedSSR(e.target.value);
+                        localStorage.setItem("form_selectedSSR", e.target.value);
+                      }}
+                      
                     >
                       {ssrOptions.map((ssr) => (
                         <option key={ssr.value} value={ssr.value}>
@@ -480,6 +505,8 @@ const EstimateForm = () => {
                   <div>
                     <label htmlFor="chapters" className="block mb-1 font-medium">Chapter:</label>
                     <Select
+  key={formResetKey}
+
                       options={chapters.map(ch => ({
                         value: ch.chapterId.toString(),
                         label: ch.chapterCategory
@@ -492,7 +519,9 @@ const EstimateForm = () => {
                         } : null
                       }
                       onChange={(option) => {
-                        setSelectedChapter(option ? option.value : '');
+                        const value = option ? option.value : '';
+                        setSelectedChapter(value);
+                        localStorage.setItem("form_selectedChapter", value);
                       
                         if (option) {
                           toast.success(`Selected chapter: ${option.label}`);
@@ -542,8 +571,13 @@ const EstimateForm = () => {
                       id="area" 
                       className="w-full p-2 border border-gray-300 rounded-md"
                       value={selectedArea}
-                      onChange={handleAreaChange}
-                      required
+                      onChange={(e) => {
+                        setSelectedArea(e.target.value);
+                        localStorage.setItem("form_selectedArea", e.target.value);
+                        const areaObj = areas.find(area => area.value === e.target.value);
+                        setAreaPercentage(areaObj ? areaObj.percentage : '0');
+                      }}
+                      
                     >
                       {areas.map((area) => (
                         <option 
@@ -569,8 +603,11 @@ const EstimateForm = () => {
                       rows="5" 
                       id="preparedBySignature"
                       value={preparedBySignature}
-                      onChange={(e) => setPreparedBySignature(e.target.value)}
-                      required
+                      onChange={(e) => {
+                        setPreparedBySignature(e.target.value);
+                        localStorage.setItem("form_preparedBySignature", e.target.value);
+                      }}
+                      
                     ></textarea>
                   </div>
                   
@@ -582,8 +619,11 @@ const EstimateForm = () => {
                       rows="5" 
                       id="checkedBySignature"
                       value={checkedBySignature}
-                      onChange={(e) => setCheckedBySignature(e.target.value)}
-                      required
+                      onChange={(e) => {
+                        setCheckedBySignature(e.target.value);
+                        localStorage.setItem("form_checkedBySignature", e.target.value);
+                      }}
+                      
                     ></textarea>
                   </div>
                 </div>
@@ -612,9 +652,34 @@ const EstimateForm = () => {
             <button 
               className="w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-lg hover:bg-blue-700 group relative"
               onClick={() => {
-                toast.success('Creating new estimate form');
-                // Reset form logic can be added here if needed
+                [
+                  "form_workName",
+                  "form_selectedState",
+                  "form_selectedDept",
+                  "form_selectedSSR",
+                  "form_selectedChapter",
+                  "form_selectedArea",
+                  "form_preparedBySignature",
+                  "form_checkedBySignature"
+                ].forEach(key => localStorage.removeItem(key));
+              
+                toast.success('Form cleared for new estimate!');
+                
+                // Reset local state
+                setCurrentStep(1);
+                setWorkName("");
+                setSelectedState("");
+                setSelectedDept("");
+                setSelectedSSR("");
+                setSelectedChapter("");
+                setSelectedArea("General Area");
+                setPreparedBySignature("");
+                setCheckedBySignature("");
+              
+                // Trigger Select reset
+                setFormResetKey(prev => prev + 1);
               }}
+              
             >
               <FontAwesomeIcon icon={faPlus} />
               <span className="absolute right-full mr-3 bg-gray-800 text-white text-sm py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">

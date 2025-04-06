@@ -860,7 +860,7 @@ const EstimateForm = () => {
   const [chapters, setChapters] = useState([]);
   
   // JWT Token - In production, store this securely and not hard-coded
-  const jwtToken =  "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI5MjA5MTYwNjEyIiwiaWF0IjoxNzQzNTk5NzEwLCJleHAiOjE3NDM2ODYxMTB9.eE7zAbpk536w3O_kdm13YlP6_YRmIzmGtemC2GlWv60";
+  const jwtToken =  "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI5MjA5MTYwNjEyIiwiaWF0IjoxNzQzODUzNjgyLCJleHAiOjE3NDM5NDAwODJ9.sqUaOTWlqjybtP5c4VZwRPgQfPapwx88VVRSMFgp9b0";
   
   // API base URL - should be in environment variable in production
   const API_BASE_URL = "http://24.101.103.87:8082/api";

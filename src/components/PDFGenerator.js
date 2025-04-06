@@ -1,34 +1,35 @@
+// File: PDFGenerator.jsx
 import React, { useEffect, useState } from 'react';
-import MeasurementPDFExport from './MeasurementPDFExport'; // adjust path if needed
+import MeasurementPDFExport from './MeasurementPDFExport';
+import Stepper from '../components/Stepper';
 
 const PDFGenerator = () => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  
+
   const nameOfWork = localStorage.getItem('nameOfWork') || 'Measurement Sheet';
-  const subRecordCache = JSON.parse(localStorage.getItem('subRecordCache') || '{}');
-  
-  const workOrderId = localStorage.getItem("pdfWorkOrderId") || "";
-  const revisionNumber = localStorage.getItem("pdfRevisionNumber") || "1.0";
-  
-  const token = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI5MjA5MTYwNjEyIiwiaWF0IjoxNzQzODUzNjgyLCJleHAiOjE3NDM5NDAwODJ9.sqUaOTWlqjybtP5c4VZwRPgQfPapwx88VVRSMFgp9b0'; // ideally store in env or get from context
-  
+  const subRecordCache = JSON.parse(localStorage.getItem('subRecordCache') || '[]');
+  const workOrderId = localStorage.getItem('pdfWorkOrderId') || '';
+  const revisionNumber = localStorage.getItem('pdfRevisionNumber') || '1.0';
+
+  const token = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI5MjA5MTYwNjEyIiwiaWF0IjoxNzQzODUzNjgyLCJleHAiOjE3NDM5NDAwODJ9.sqUaOTWlqjybtP5c4VZwRPgQfPapwx88VVRSMFgp9b0'; // store in env ideally
+
   const fetchMeasurements = async (itemId) => {
     try {
       const res = await fetch(`http://24.101.103.87:8082/api/txn-items-mts/ByItemId/${itemId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       return await res.json();
-    } catch (error) {
-      console.error(`Error fetching measurements for item ${itemId}:`, error);
+    } catch (err) {
+      console.error(`Error fetching measurements for item ${itemId}:`, err);
       return [];
     }
   };
-  
+
   const fetchItems = async () => {
     setLoading(true);
     try {
-      const allItems = Object.values(subRecordCache).flat();
+      const allItems = subRecordCache || [];
       const detailedItems = await Promise.all(
         allItems.map(async (item) => {
           const measurements = await fetchMeasurements(item.id);
@@ -36,29 +37,46 @@ const PDFGenerator = () => {
         })
       );
       setItems(detailedItems);
-    } catch (error) {
-      console.error("Error fetching items:", error);
+    } catch (err) {
+      console.error("Error fetching item details:", err);
     } finally {
       setLoading(false);
     }
   };
-  
+
   useEffect(() => {
     fetchItems();
   }, []);
-  
-  if (loading) {
-    return <div className="text-center mt-6">Loading measurement data...</div>;
-  }
-  
+
   return (
-    <div className="mt-4">
-      <MeasurementPDFExport 
-        nameOfWork={nameOfWork} 
-        items={items} 
-        workOrderId={workOrderId} 
-        revisionNumber={revisionNumber} 
-      />
+    <div className="container mx-auto px-4 py-6">
+      {/* Stepper */}
+      <div className="mb-6">
+        <Stepper currentStep={7} />
+      </div>
+
+      {/* PDF Preview Section */}
+      <div className="bg-white p-4 border rounded shadow-md">
+        <h2 className="text-xl font-semibold mb-4 text-center text-blue-700">
+          PDF Preview - Measurement Sheet
+        </h2>
+
+        {loading ? (
+          <div className="text-center py-6">Loading measurement data...</div>
+        ) : (
+          <>
+            <div className="border border-dashed border-gray-400 rounded p-4 mb-6">
+              <p className="text-sm text-gray-600 text-center mb-2">Review your measurement data below:</p>
+              <MeasurementPDFExport
+                nameOfWork={nameOfWork}
+                items={items}
+                workOrderId={workOrderId}
+                revisionNumber={revisionNumber}
+              />
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 };

@@ -1,16 +1,9 @@
-import React, { useRef, useEffect } from 'react';
+// File: PDFPage.jsx
+import React from 'react';
 import PDFGenerator from './PDFGenerator';
 
 const PDFPage = () => {
-  const pdfRef = useRef();
-
-  useEffect(() => {
-    if (pdfRef.current) {
-      pdfRef.current.generatePDF();
-    }
-  }, []);
-
-  return <PDFGenerator ref={pdfRef} />;
+  return <PDFGenerator />;
 };
 
 export default PDFPage;

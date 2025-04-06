@@ -187,7 +187,7 @@ const MeasurementTable = ({ itemId, token, unitLabel = "Cu.M." }) => {
                 <th className="border px-2 py-1">H/D</th>
                 <th className="border px-2 py-1">Quantity</th>
                 <th className="border px-2 py-1">Unit</th>
-                <th className="border px-2 py-1">Actions</th>
+                <th className="border px-2 py-1"></th>
               </tr>
             </thead>
             <tbody>

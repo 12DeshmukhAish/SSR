@@ -54,7 +54,7 @@ const styles = StyleSheet.create({
   },
   tableHeaderRow: {
     flexDirection: 'row',
-    borderBottomWidth: 1,
+    borderBottomWidth: 0.5,
     borderBottomColor: '#000',
     borderBottomStyle: 'solid',
     backgroundColor: '#f2f2f2',
@@ -87,13 +87,13 @@ const styles = StyleSheet.create({
     // Removed the right border
   },
   itemRow: {
-    backgroundColor: '#f9f9f9',
     marginTop: 0,
     marginBottom: 0,
     borderTopWidth: 1,
     borderTopColor: '#000',
     borderTopStyle: 'solid',
   },
+  
   totalRow: {
     flexDirection: 'row',
     borderBottomWidth: 0,
@@ -121,9 +121,7 @@ const styles = StyleSheet.create({
   },
   netQuantityRow: {
     flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: '#000',
-    borderTopStyle: 'solid',
+    // Removed top border
     fontWeight: 'bold',
     marginTop: 0,
     paddingTop: 2,
@@ -146,11 +144,11 @@ const styles = StyleSheet.create({
     fontSize: 9,
   },
   spacerRow: {
-    height: 10, // Space after each net quantity
-    borderTopWidth: 1,
-    borderTopColor: '#000',
+    height: 10,
+    borderTopWidth: 0.25, // ↓ even fainter line
+    borderTopColor: '#f2f2f2',
     borderTopStyle: 'solid',
-  }
+  },
 });
 
 // Function to calculate total quantity for an item's measurements
@@ -174,7 +172,7 @@ const MeasurementPDF = ({ workOrderId, nameOfWork, items }) => (
         {/* Table Header */}
         <View style={styles.tableHeaderRow}>
           <View style={[styles.tableColHeader, styles.srNoCol]}>
-            <Text>SR.NO.</Text>
+            <Text>Sr.No.</Text>
           </View>
           <View style={[styles.tableColHeader, styles.itemNoCol]}>
             <Text>Item No.</Text>
@@ -206,7 +204,7 @@ const MeasurementPDF = ({ workOrderId, nameOfWork, items }) => (
         {items.map((item, idx) => (
           <React.Fragment key={item.id || idx}>
             {/* Item Row */}
-            <View style={[styles.tableRow, styles.itemRow]}>
+            <View style={[styles.tableRow, styles.itemRow]}wrap={false}>
               <View style={[styles.tableCol, styles.srNoCol, styles.textAlign]}>
                 <Text>{idx + 1}</Text>
               </View>
@@ -238,7 +236,7 @@ const MeasurementPDF = ({ workOrderId, nameOfWork, items }) => (
             
             {/* Measurement Rows */}
             {item.measurements && item.measurements.map((m, i) => (
-              <View style={styles.tableRow} key={`measurement-${i}`}>
+              <View style={styles.tableRow} key={`measurement-${i}`}wrap={false}>
                 <View style={[styles.emptyCol, styles.srNoCol]}>
                   <Text></Text>
                 </View>
@@ -290,13 +288,8 @@ const MeasurementPDF = ({ workOrderId, nameOfWork, items }) => (
                 </View>
                 
                 {/* Add spacer row after each item */}
-                <View style={styles.spacerRow}>
-                  <View style={{ flexDirection: 'row' }}>
-                    <View style={[{ width: '100%' }]}>
-                      <Text> </Text>
-                    </View>
-                  </View>
-                </View>
+                <View style={styles.spacerRow} />
+
               </React.Fragment>
             )}
           </React.Fragment>

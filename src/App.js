@@ -6,7 +6,7 @@ import MyWork from "./components/MyWork";
 import Sidebar from "./components/Sidebar";
 import Header from "./components/Header";
 import EstimateForm from "./components/Estimate";
-import EstimateComponent from "./components/SubEstimate";
+
 import SubEstimate from "./components/SubEstimate";
 import StepperPage from "./components/Stepper";
 import ProfilePage from "./components/Profile";
@@ -15,6 +15,7 @@ import PDFGenerator from "./components/PDFGenerator";
 import PDFPage from "./components/PDFPage";
 import DuplicateEstimate from "./components/DuplicateModal";
 import EditEstimatePage from "./components/EditEstimate";
+import EditSubEstimateForm from "./components/EditSubEstimate";
 
 function Layout({ children }) {
   return (
@@ -95,6 +96,14 @@ function App() {
           element={
             <Layout>
               <StepperPage />
+            </Layout>
+          }
+        />
+           <Route
+          path="/editsubestimate" // ✅ This was missing
+          element={
+            <Layout>
+              <EditSubEstimateForm />
             </Layout>
           }
         />

@@ -12,7 +12,7 @@ const PDFGenerator = () => {
   const workOrderId = localStorage.getItem('pdfWorkOrderId') || '';
   const revisionNumber = localStorage.getItem('pdfRevisionNumber') || '1.0';
 
-  const token = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI5MjA5MTYwNjEyIiwiaWF0IjoxNzQzODUzNjgyLCJleHAiOjE3NDM5NDAwODJ9.sqUaOTWlqjybtP5c4VZwRPgQfPapwx88VVRSMFgp9b0'; // store in env ideally
+  const token = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI5MjA5MTYwNjEyIiwiaWF0IjoxNzQ0MjAyNDEzLCJleHAiOjE3NDQyODg4MTN9.cxCaFHJsjjmwxjCOSHwov6xVsxaZsn9AWTDqnSwhXK0'; // store in env ideally
 
   const fetchMeasurements = async (itemId) => {
     try {

@@ -4,28 +4,25 @@ import { X } from 'lucide-react'; // Import X icon for close button
 const DuplicateModal = ({ workorderId, onClose }) => {
   const [revisions, setRevisions] = useState([]);
   const [selectedRevisionId, setSelectedRevisionId] = useState(null);
-  const [loading, setLoading] = useState(false);  // Set initial loading to false
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  
-  const token = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI5MjA5MTYwNjEyIiwiaWF0IjoxNzQ0MjAyNDEzLCJleHAiOjE3NDQyODg4MTN9.cxCaFHJsjjmwxjCOSHwov6xVsxaZsn9AWTDqnSwhXK0";
+
+  const token = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI5MjA5MTYwNjEyIiwiaWF0IjoxNzQ0NDM2NDMwLCJleHAiOjE3NDQ1MjI4MzB9.T_YSsBeIwdvbKBECM79ZHJ5Z3_cCMQeCwMSlF3fHH6g";
 
   useEffect(() => {
-    if (workorderId) {  // Only call fetchRevisions if workorderId exists
+    if (workorderId) {
       fetchRevisions();
     }
   }, [workorderId]);
 
   const fetchRevisions = async () => {
-    if (!workorderId) {
-      return; // Don't do anything if no workorderId
-    }
-    
+    if (!workorderId) return;
     setLoading(true);
-    setError(null); // Clear previous errors
-    
+    setError(null);
+
     try {
       const response = await fetch(
-        `http://24.101.103.87:8082/api/workorder-revisions/ByWorkorderId/${workorderId}`, 
+        `http://24.101.103.87:8082/api/workorder-revisions/ByWorkorderId/${workorderId}`,
         {
           method: "GET",
           headers: {
@@ -34,18 +31,20 @@ const DuplicateModal = ({ workorderId, onClose }) => {
           }
         }
       );
-      
+
       if (!response.ok) {
         throw new Error(`HTTP Error! Status: ${response.status}`);
       }
-      
+
       const data = await response.json();
-      
-      // Filter revisions where deletedFlag is "no"
-      const filteredRevisions = data.filter(rev => 
-        rev && rev.deletedFlag && rev.deletedFlag.toLowerCase() === "no"
+      if (!Array.isArray(data)) {
+        throw new Error("Expected array but received invalid data.");
+      }
+
+      const filteredRevisions = data.filter(rev =>
+        rev && rev.deletedFlag?.toString().toLowerCase() === "no"
       );
-      
+
       setRevisions(filteredRevisions);
     } catch (err) {
       console.error("Error fetching revisions:", err);
@@ -61,29 +60,13 @@ const DuplicateModal = ({ workorderId, onClose }) => {
       return;
     }
 
-    // Store values in localStorage (same as in the original code)
+    localStorage.setItem("editMode", "true");
     localStorage.setItem("recordId", workorderId);
-    localStorage.setItem("revisionId", selectedRevisionId);
+    localStorage.setItem("reviseId", selectedRevisionId);
 
-    // Get the selected revision data for pre-fill
-    const selectedRevision = revisions.find(rev => rev.id === selectedRevisionId);
-    if (selectedRevision) {
-      // Store pre-fill fields if available in the revision
-      if (selectedRevision.nameOfWork) localStorage.setItem("prefill_nameOfWork", selectedRevision.nameOfWork);
-      if (selectedRevision.state) localStorage.setItem("prefill_state", selectedRevision.state);
-      if (selectedRevision.department) localStorage.setItem("prefill_department", selectedRevision.department);
-      if (selectedRevision.ssr) localStorage.setItem("prefill_ssr", selectedRevision.ssr);
-      if (selectedRevision.area) localStorage.setItem("prefill_area", selectedRevision.area);
-      if (selectedRevision.preparedBySignature) localStorage.setItem("prefill_preparedBy", selectedRevision.preparedBySignature);
-      if (selectedRevision.checkedBySignature) localStorage.setItem("prefill_checkedBy", selectedRevision.checkedBySignature);
-      if (selectedRevision.chapterId) localStorage.setItem("prefill_chapter", selectedRevision.chapterId.toString());
-    }
-
-    // Redirect to duplicate page
-    window.location.href = "/duplicateestimate";
+    window.location.href = "/estimate";
   };
 
-  // Handle view PDF if available
   const handleViewPdf = (pdfLocation) => {
     if (pdfLocation) {
       window.open(pdfLocation, "_blank");
@@ -97,14 +80,14 @@ const DuplicateModal = ({ workorderId, onClose }) => {
       <div className="bg-white rounded-lg shadow-lg w-full max-w-md mx-4">
         <div className="flex items-center justify-between p-4 border-b">
           <h2 className="text-xl font-semibold">Duplicate Workorder</h2>
-          <button 
+          <button
             onClick={onClose}
             className="p-1 rounded-full hover:bg-gray-100 transition-colors"
           >
             <X size={20} />
           </button>
         </div>
-        
+
         <div className="p-4">
           {!workorderId ? (
             <div className="py-4 text-center text-red-600">
@@ -113,7 +96,7 @@ const DuplicateModal = ({ workorderId, onClose }) => {
           ) : (
             <>
               <p className="mb-4"><strong>Record ID:</strong> {workorderId}</p>
-              
+
               {loading ? (
                 <div className="py-4 text-center">
                   <p>Loading revisions...</p>
@@ -129,8 +112,8 @@ const DuplicateModal = ({ workorderId, onClose }) => {
               ) : (
                 <div className="border rounded-md mb-4 max-h-60 overflow-y-auto">
                   {revisions.map(revision => (
-                    <div 
-                      key={revision.id} 
+                    <div
+                      key={revision.id}
                       className="flex items-center p-3 border-b last:border-b-0 hover:bg-gray-50"
                     >
                       <input
@@ -142,13 +125,13 @@ const DuplicateModal = ({ workorderId, onClose }) => {
                         onChange={() => setSelectedRevisionId(revision.id)}
                         className="mr-3"
                       />
-                      <label 
+                      <label
                         htmlFor={`rev-${revision.id}`}
                         className="flex-grow cursor-pointer"
                       >
                         Revision {revision.reviseNumber}
                       </label>
-                      
+
                       {revision.pdfLocation && (
                         <button
                           onClick={() => handleViewPdf(revision.pdfLocation)}
@@ -164,15 +147,15 @@ const DuplicateModal = ({ workorderId, onClose }) => {
             </>
           )}
         </div>
-        
+
         <div className="flex justify-end gap-2 p-4 border-t">
-          <button 
+          <button
             onClick={onClose}
             className="px-4 py-2 border rounded-md hover:bg-gray-100 transition-colors"
           >
             Cancel
           </button>
-          <button 
+          <button
             onClick={handleConfirm}
             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={!selectedRevisionId || loading || !workorderId}

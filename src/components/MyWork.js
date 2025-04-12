@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { FaFlagCheckered, FaCheck, FaTrash, FaPlus, FaWhatsapp, FaFilePdf } from "react-icons/fa";
 import { motion } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
+import { prefillRevisionDuplicateLocalStorage } from './revisionDuplicateUtils';
 
 const MyWork = () => {
   const [dateRange, setDateRange] = useState('1M');
@@ -21,12 +22,71 @@ const MyWork = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [isLoading, setIsLoading] = useState(false);
+  const isEditMode = localStorage.getItem("editMode") === "true";
+const isDuplicateRevision = localStorage.getItem("duplicateRevision") === "true";
+const existingRevisionId = localStorage.getItem("reviseId");
 
-  const token = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI5MjA5MTYwNjEyIiwiaWF0IjoxNzQ0MjAyNDEzLCJleHAiOjE3NDQyODg4MTN9.cxCaFHJsjjmwxjCOSHwov6xVsxaZsn9AWTDqnSwhXK0";
+useEffect(() => {
+  const isEditMode = localStorage.getItem("editMode") === "true";
+  const isDuplicateRevision = localStorage.getItem("duplicateRevision") === "true";
+
+  const createDuplicateRevision = async () => {
+    const existingRevisionId = localStorage.getItem("reviseId");
+    const API_BASE_URL = "http://24.101.103.87:8082/api";
+    const jwtToken = token;
+
+    if (isEditMode && isDuplicateRevision) {
+      const revisionPayload = {
+        workorderId: parseInt(localStorage.getItem("recordId")),
+        reviseNumber: localStorage.getItem("reviseno") || "1.1",
+        createdDate: new Date().toISOString(),
+        createdBy: parseInt(localStorage.getItem("Id") || "92"),
+        updatedBy: parseInt(localStorage.getItem("Id") || "92"),
+        updatedDate: new Date().toISOString(),
+        currentFlag: true,
+        deletedFlag: "no",
+        pdfLocation: "",
+        revisionStage: "started",
+        revisionStatus: "pending"
+      };
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/workorder-revisions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${jwtToken}`
+          },
+          body: JSON.stringify(revisionPayload)
+        });
+
+        const newRevData = await res.json();
+        localStorage.setItem("reviseId", newRevData.id);
+        toast.success("Revision duplicated successfully!");
+        setTimeout(() => {
+          window.location.href = "/subestimate";
+        }, 1000);
+      } catch (err) {
+        toast.error("Failed to duplicate revision: " + err.message);
+      }
+
+      localStorage.removeItem("duplicateRevision");
+    }
+  };
+
+  createDuplicateRevision();
+}, []);
+
+
+  const token = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI5MjA5MTYwNjEyIiwiaWF0IjoxNzQ0NDM2NDMwLCJleHAiOjE3NDQ1MjI4MzB9.T_YSsBeIwdvbKBECM79ZHJ5Z3_cCMQeCwMSlF3fHH6g";
   const uid = 92;
-
   useEffect(() => {
     fetchData();
+    const updated = localStorage.getItem("estimateUpdated");
+    if (updated === "true") {
+      localStorage.removeItem("estimateUpdated");
+      fetchData();
+    }
   }, []);
 
   useEffect(() => {
@@ -241,29 +301,47 @@ const MyWork = () => {
       </div>
     ), { duration: 10000 });
   };
+  // const handleDuplicateRevision = (workorderId, revisionId, record) => {
+  //   const oldRevNo = parseFloat(record.reviseNumber);
+  //   const newRevNo = (oldRevNo + 0.1).toFixed(1); // e.g., 1.0 -> 1.1
   
-  const handleDuplicateRevision = (mainId, revisionId, record) => {
-    localStorage.setItem("recordId", mainId);
-    localStorage.setItem("revisionId", revisionId);
+  //   localStorage.setItem("editMode", "true");
+  //   localStorage.setItem("recordId", workorderId);
+  //   localStorage.setItem("reviseId", ""); // new revision will be created
+  //   localStorage.setItem("reviseno", newRevNo); // updated revision number
+  //   localStorage.setItem("duplicateRevision", "true");
   
-    // Store pre-fill fields
-    localStorage.setItem("prefill_nameOfWork", record.nameOfWork);
-    localStorage.setItem("prefill_state", record.state);
-    localStorage.setItem("prefill_department", record.department);
-    localStorage.setItem("prefill_ssr", record.ssr);
-    localStorage.setItem("prefill_area", record.area);
-    localStorage.setItem("prefill_preparedBy", record.preparedBySignature || "");
-    localStorage.setItem("prefill_checkedBy", record.checkedBySignature || "");
-    localStorage.setItem("prefill_chapter", record.chapterId?.toString());
+  //   // Save fields to prefill EstimateForm
+  //   localStorage.setItem("edit_nameOfWork", record.nameOfWork);
+  //   localStorage.setItem("edit_state", record.state);
+  //   localStorage.setItem("edit_department", record.department);
+  //   localStorage.setItem("edit_ssr", record.ssr);
+  //   localStorage.setItem("edit_area", record.area);
+  //   localStorage.setItem("edit_preparedBy", record.preparedBySignature);
+  //   localStorage.setItem("edit_checkedBy", record.checkedBySignature);
+  //   localStorage.setItem("edit_chapter", record.chapterId?.toString());
   
-    // Notify user and redirect
-    toast.success('Duplicating revision, redirecting...');
-    
-    // Redirect to duplicate page
-    window.location.href = "/duplicateestimate";
+  //   localStorage.setItem("autogenerated", record.workOrderID);
+  //   localStorage.setItem("status", record.status);
+  //   localStorage.setItem("revisionStage", "started");
+  
+  //   window.location.href = "/estimate";
+  // };
+  
+  const handleDuplicateRevision = (workorderId, revisionId, record) => {
+    const latestRevision = subRecords[workorderId]?.find(sub => sub.id === revisionId);
+    if (!latestRevision) return;
+  
+    prefillRevisionDuplicateLocalStorage(record, latestRevision);
+    window.location.href = "/estimate";
   };
   
-  
+  // Add above handleEdit
+const handleDuplicate = (id) => {
+  setSelectedWorkorderId(id);
+  toast.success('Preparing to duplicate estimate');
+};
+
   // Updated Edit function with confirmation toast
   const handleEdit = (id, record) => {
     // Show confirmation toast
@@ -287,6 +365,8 @@ const MyWork = () => {
               
               // Store any additional data needed for the edit page
               if (record) {
+                localStorage.setItem('recordId', id); // workorderId
+                localStorage.setItem('editMode', 'true'); // flag for edit mode
                 localStorage.setItem("edit_nameOfWork", record.nameOfWork || "");
                 localStorage.setItem("edit_state", record.state || "");
                 localStorage.setItem("edit_department", record.department || "");
@@ -295,12 +375,13 @@ const MyWork = () => {
                 localStorage.setItem("edit_preparedBy", record.preparedBySignature || "");
                 localStorage.setItem("edit_checkedBy", record.checkedBySignature || "");
                 localStorage.setItem("edit_chapter", record.chapterId?.toString() || "");
+                
               }
               
               toast.success('Editing estimate...');
               
               // Use React Router's navigate for better SPA navigation
-              navigate('/editestimate');
+              navigate('/estimate');
             }}
             className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
           >
@@ -321,10 +402,10 @@ const MyWork = () => {
     }
   };
   
-  const handleDuplicate = (id) => {
-    setSelectedWorkorderId(id);
-    toast.success('Preparing to duplicate estimate');
-  };
+  // const handleDuplicate = (id) => {
+  //   setSelectedWorkorderId(id);
+  //   toast.success('Preparing to duplicate estimate');
+  // };
   
   const getFilteredRecords = () => {
     const start = new Date(startDate);
@@ -508,16 +589,23 @@ const MyWork = () => {
                         </button>
                         
                         {/* Show Edit button only for "started" workorders */}
-                        {record.status?.toLowerCase() === 'started' && (
-                          <button 
-                            onClick={() => handleEdit(record.id, record)} 
-                            title="Edit"
-                            className="p-1 hover:bg-amber-100 rounded transition-colors text-amber-600"
-                          >
-                            <Edit size={18} />
-                          </button>
-                        )}
-                        
+                        {record.status?.toLowerCase() === 'started' && subRecords[record.id]?.[0] && (
+  <button
+    title="Duplicate Latest Revision"
+    onClick={() => handleDuplicateRevision(record.id, subRecords[record.id][0].id, { ...record, reviseNumber: subRecords[record.id][0].reviseNumber })}
+    className="p-1 hover:bg-blue-100 rounded transition-colors text-blue-600"
+  >
+    <Copy size={16} />
+  </button>
+)}
+
+<button 
+  onClick={() => handleEdit(record.id, record)}
+  title="Edit"
+  className="p-1 hover:bg-green-100 rounded transition-colors text-green-600"
+>
+  <Edit size={18} />
+</button>       
                         {/* Show active PDF button only for "completed" workorders with pdfLocation */}
                         {record.status?.toLowerCase() === '	Progress' && record.pdfLocation ? (
                           <button 
@@ -595,14 +683,14 @@ const MyWork = () => {
                                           <FaFilePdf size={16} />
                                         </div>
                                       )}
-                                      
-                                      <button
-                                        title="Duplicate Revision"
-                                        onClick={() => handleDuplicateRevision(record.id, sub.id, record)}
-                                        className="p-1 hover:bg-blue-100 rounded transition-colors text-blue-600"
-                                      >
-                                        <Copy size={16} />
-                                      </button>
+<button
+  title="Duplicate Revision"
+  onClick={() => handleDuplicateRevision(record.id, sub.id, { ...record, reviseNumber: sub.reviseNumber })}
+  className="p-1 hover:bg-blue-100 rounded transition-colors text-blue-600"
+>
+  <Copy size={16} />
+</button>
+
                                       
                                       <button
                                         title="Delete Revision"

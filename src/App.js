@@ -16,6 +16,7 @@ import PDFPage from "./components/PDFPage";
 import DuplicateEstimate from "./components/DuplicateModal";
 import EditEstimatePage from "./components/EditEstimate";
 import EditSubEstimateForm from "./components/EditSubEstimate";
+import WorkorderManagement from "./components/Trash";
 
 function Layout({ children }) {
   return (
@@ -55,6 +56,14 @@ function App() {
           element={
             <Layout>
               <DuplicateEstimate />
+            </Layout>
+          }
+        />
+          <Route
+          path="/trash"
+          element={
+            <Layout>
+              <WorkorderManagement />
             </Layout>
           }
         />

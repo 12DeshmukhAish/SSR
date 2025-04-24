@@ -26,13 +26,14 @@ const MyWork = () => {
 const isDuplicateRevision = localStorage.getItem("duplicateRevision") === "true";
 const existingRevisionId = localStorage.getItem("reviseId");
 
+
 useEffect(() => {
   const isEditMode = localStorage.getItem("editMode") === "true";
   const isDuplicateRevision = localStorage.getItem("duplicateRevision") === "true";
 
   const createDuplicateRevision = async () => {
     const existingRevisionId = localStorage.getItem("reviseId");
-    const API_BASE_URL = "http://24.101.103.87:8082/api";
+    const API_BASE_URL = "https://24.101.103.87:8082/api";
     const jwtToken = token;
 
     if (isEditMode && isDuplicateRevision) {
@@ -78,7 +79,7 @@ useEffect(() => {
 }, []);
 
 
-  const token = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI5MjA5MTYwNjEyIiwiaWF0IjoxNzQ0NDM2NDMwLCJleHAiOjE3NDQ1MjI4MzB9.T_YSsBeIwdvbKBECM79ZHJ5Z3_cCMQeCwMSlF3fHH6g";
+  const token = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI5MjA5MTYwNjEyIiwiaWF0IjoxNzQ1NDIzNjczLCJleHAiOjE3NDU1MTAwNzN9.4cfviErztGCET2mb3Wg34JnFbm24Y8EPIfHAMN84XIQ";
   const uid = 92;
   useEffect(() => {
     fetchData();
@@ -98,7 +99,7 @@ useEffect(() => {
     const loadingToast = toast.loading('Loading work orders...');
     
     try {
-      const response = await fetch(`http://24.101.103.87:8082/api/workorders/ByUser/${uid}`, {
+      const response = await fetch(`https://24.101.103.87:8082/api/workorders/ByUser/${uid}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -164,7 +165,7 @@ useEffect(() => {
     const loadingToast = toast.loading('Loading revisions...');
     
     try {
-      const response = await fetch(`http://24.101.103.87:8082/api/workorder-revisions/ByWorkorderId/${workorderId}`, {
+      const response = await fetch(`https://24.101.103.87:8082/api/workorder-revisions/ByWorkorderId/${workorderId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -200,13 +201,32 @@ useEffect(() => {
     setEndDate(today.toISOString().split('T')[0]);
   };
 
-  const toggleRow = (id) => {
+  const toggleRow = async (id) => {
     setExpandedRows(prev => {
+      // Toggle the current row only
       const expanded = { ...prev, [id]: !prev[id] };
-      if (expanded[id] && !subRecords[id]) fetchSubRecords(id);
       return expanded;
     });
+  
+    // If expanding (true), always fetch the latest revisions from API
+    if (!expandedRows[id]) {
+      setSubRecords(prev => ({ ...prev, [id]: undefined })); // Clear old data while loading
+      try {
+        const response = await fetch(`https://24.101.103.87:8082/api/workorder-revisions/ByWorkorderId/${id}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) throw new Error(`Error fetching revisions for workorder ${id}`);
+        const data = await response.json();
+        // Only include revisions where deletedFlag === 'no'
+        const filtered = (data || []).filter(rec => String(rec.deletedFlag).toLowerCase() === 'no');
+        setSubRecords(prev => ({ ...prev, [id]: filtered }));
+      } catch (err) {
+        setSubRecords(prev => ({ ...prev, [id]: [] }));
+        toast.error(`Failed to load revisions: ${err.message}`);
+      }
+    }
   };
+  
 
   const handleDelete = async (id) => {
     // Show confirmation toast
@@ -226,7 +246,7 @@ useEffect(() => {
               const deleteToast = toast.loading('Deleting record...');
               
               try {
-                const response = await fetch(`http://24.101.103.87:8082/api/workorders/${id}`, {
+                const response = await fetch(`https://24.101.103.87:8082/api/workorders/${id}`, {
                   method: 'PUT',
                   headers: {
                     'Authorization': `Bearer ${token}`,
@@ -273,7 +293,7 @@ useEffect(() => {
               const deleteToast = toast.loading('Deleting revision...');
               
               try {
-                const response = await fetch(`http://24.101.103.87:8082/api/workorder-revisions/${revisionId}`, {
+                const response = await fetch(`https://24.101.103.87:8082/api/workorder-revisions/${revisionId}`, {
                   method: 'PUT',
                   headers: {
                     'Authorization': `Bearer ${token}`,
@@ -327,14 +347,104 @@ useEffect(() => {
   
   //   window.location.href = "/estimate";
   // };
+  const fetchRevisions = async (workorderId) => {
+    try {
+      const response = await fetch(
+        `https://24.101.103.87:8082/api/workorder-revisions/ByWorkorderId/${workorderId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      if (!response.ok) throw new Error("Failed to fetch revisions");
   
-  const handleDuplicateRevision = (workorderId, revisionId, record) => {
-    const latestRevision = subRecords[workorderId]?.find(sub => sub.id === revisionId);
-    if (!latestRevision) return;
+      const revisions = await response.json();
+      // 1. Only non-deleted
+      // 2. Only revisions with valid (non-empty) reviseNumber
+      // 3. Sort by reviseNumber as numbers (not string)
+      // 4. No gaps: force an array of reviseNumbers from 1.0 up, filling missing with null (for pure display), but for duplication, **use the max+0.1**
+      const filtered = (revisions || [])
+        .filter(r =>
+          r.deletedFlag !== undefined &&
+          String(r.deletedFlag).toLowerCase() !== "yes" &&
+          !isNaN(parseFloat(r.reviseNumber))
+        )
+        .sort((a, b) => parseFloat(a.reviseNumber) - parseFloat(b.reviseNumber));
   
-    prefillRevisionDuplicateLocalStorage(record, latestRevision);
-    window.location.href = "/estimate";
+      return filtered;
+    } catch (err) {
+      toast.error("Error loading revisions");
+      return [];
+    }
   };
+  const fetchRevisionById = async (revisionId) => {
+    try {
+      const response = await fetch(`https://24.101.103.87:8082/api/workorder-revisions/${revisionId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+  
+      if (!response.ok) {
+        throw new Error(`Failed to fetch revision with id ${revisionId}`);
+      }
+  
+      const data = await response.json();
+      return Array.isArray(data) ? data[0] : data;
+    } catch (err) {
+      toast.error(`Error fetching revision: ${err.message}`);
+      return null;
+    }
+  };
+  
+  function getNextRevisionNumberFromList(revisions) {
+    // Filter only valid revision numbers, get max, then +0.1
+    const nums = (revisions || [])
+      .map(r => parseFloat(r.reviseNumber))
+      .filter(n => !isNaN(n));
+    if (nums.length === 0) return "1.0";
+    const max = Math.max(...nums);
+    return (Math.round((max + 0.1) * 10) / 10).toFixed(1); // Always increments to next .1
+  }
+  
+  
+  const handleDuplicateRevision = async (workorderId, revisionToCopy, workorderRecord) => {
+    // 1. Fetch all current revisions for the workorder
+    const allRevisions = await fetchRevisions(workorderId);
+    // 2. Get next available number
+    const nextRevNumber = getNextRevisionNumberFromList(allRevisions);
+  
+    // 3. Prefill localStorage (copy all fields)
+    localStorage.setItem("editMode", "true");
+    localStorage.setItem("recordId", workorderId);
+    localStorage.setItem("reviseId", ""); // Always blank for new
+    localStorage.setItem("reviseno", nextRevNumber); // <-- Use this
+    localStorage.setItem("duplicateRevision", "true");
+    localStorage.setItem("edit_nameOfWork", workorderRecord.nameOfWork || "");
+    localStorage.setItem("edit_state", workorderRecord.state || "");
+    localStorage.setItem("edit_department", workorderRecord.department || "");
+    localStorage.setItem("edit_ssr", workorderRecord.ssr || "");
+    localStorage.setItem("edit_area", workorderRecord.area || "");
+    localStorage.setItem("edit_preparedBy", workorderRecord.preparedBySignature || "");
+    localStorage.setItem("edit_checkedBy", workorderRecord.checkedBySignature || "");
+    localStorage.setItem("edit_chapter", workorderRecord.chapterId?.toString() || "");
+    localStorage.setItem("autogenerated", workorderRecord.workOrderID);
+    localStorage.setItem("status", workorderRecord.status);
+    localStorage.setItem("revisionStage", "started");
+    // ...add any extra fields you use
+  
+    toast.success(`Duplicating revision as ${nextRevNumber}`);
+    navigate("/subestimate");
+  };
+  
+  
+  // const handleDuplicateRevision = (workorderId, revisionId, record) => {
+  //   const latestRevision = subRecords[workorderId]?.find(sub => sub.id === revisionId);
+  //   if (!latestRevision) return;
+  
+  //   prefillRevisionDuplicateLocalStorage(record, latestRevision);
+  //   window.location.href = "/estimate";
+  // };
   
   // Add above handleEdit
 const handleDuplicate = (id) => {
@@ -390,22 +500,39 @@ const handleDuplicate = (id) => {
         </div>
       </div>
     ), { duration: 10000 });
-  };
-
-
-  const handlePDF = (pdfLocation) => {
-    if (pdfLocation) {
-      window.open(pdfLocation, '_blank');
-      toast.success('Opening PDF in new tab');
-    } else {
-      toast.error('PDF not available for this record');
-    }
+  }; const prefillRevisionDuplicateLocalStorage = (record, latestRevision) => {
+    const getNextRevisionNumber = (current) => {
+      try {
+        let [major, minor] = current.split('.').map(num => parseInt(num, 10));
+        if (isNaN(major)) major = 1;
+        if (isNaN(minor)) minor = 0;
+        return `${major}.${minor + 1}`;
+      } catch (err) {
+        return "1.0"; // fallback if something goes wrong
+      }
+    };
+  
+    const newRevNo = getNextRevisionNumber(latestRevision.reviseNumber || "1.0");
+  
+    localStorage.setItem("editMode", "true");
+    localStorage.setItem("recordId", record.id);
+    localStorage.setItem("reviseId", "");
+    localStorage.setItem("reviseno", newRevNo);
+    localStorage.setItem("duplicateRevision", "true");
+  
+    localStorage.setItem("edit_nameOfWork", record.nameOfWork || "");
+    localStorage.setItem("edit_state", record.state || "");
+    localStorage.setItem("edit_department", record.department || "");
+    localStorage.setItem("edit_ssr", record.ssr || "");
+    localStorage.setItem("edit_area", record.area || "");
+    localStorage.setItem("edit_preparedBy", record.preparedBySignature || "");
+    localStorage.setItem("edit_checkedBy", record.checkedBySignature || "");
+    localStorage.setItem("edit_chapter", record.chapterId?.toString() || "");
+    localStorage.setItem("autogenerated", record.workOrderID);
+    localStorage.setItem("status", record.status);
+    localStorage.setItem("revisionStage", "started");
   };
   
-  // const handleDuplicate = (id) => {
-  //   setSelectedWorkorderId(id);
-  //   toast.success('Preparing to duplicate estimate');
-  // };
   
   const getFilteredRecords = () => {
     const start = new Date(startDate);
@@ -589,7 +716,7 @@ const handleDuplicate = (id) => {
                         </button>
                         
                         {/* Show Edit button only for "started" workorders */}
-                        {record.status?.toLowerCase() === 'started' && subRecords[record.id]?.[0] && (
+                        {/* {record.status?.toLowerCase() === 'started' && subRecords[record.id]?.[0] && (
   <button
     title="Duplicate Latest Revision"
     onClick={() => handleDuplicateRevision(record.id, subRecords[record.id][0].id, { ...record, reviseNumber: subRecords[record.id][0].reviseNumber })}
@@ -597,7 +724,7 @@ const handleDuplicate = (id) => {
   >
     <Copy size={16} />
   </button>
-)}
+)} */}
 
 <button 
   onClick={() => handleEdit(record.id, record)}
@@ -609,7 +736,7 @@ const handleDuplicate = (id) => {
                         {/* Show active PDF button only for "completed" workorders with pdfLocation */}
                         {record.status?.toLowerCase() === '	Progress' && record.pdfLocation ? (
                           <button 
-                            onClick={() => handlePDF(record.pdfLocation)} 
+                            // onClick={() => handlePDF(record.pdfLocation)} 
                             title="View PDF"
                             className="p-1 hover:bg-purple-100 rounded transition-colors text-purple-700"
                           >
@@ -638,77 +765,98 @@ const handleDuplicate = (id) => {
                   </motion.tr>
                   
                   {/* Expanded Row with Revisions */}
-                  {expandedRows[record.id] && (
-                    <tr>
-                      <td colSpan="9" className="bg-gray-50 p-4">
-                        {(subRecords[record.id]?.length === 0) ? (
-                          <div className="text-center py-4 text-gray-500">
-                            No revisions found for this work order
-                          </div>
-                        ) : (
-                          <table className="w-full border">
-                            <thead className="bg-gray-100">
-                              <tr>
-                                <th className="p-2">Revision #</th>
-                                <th className="p-2">Revision Name</th>
-                                <th className="p-2">Date</th>
-                                <th className="p-2"></th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {(subRecords[record.id] || []).map((sub) => (
-                                <tr key={sub.id} className="border-t hover:bg-gray-100">
-                                  <td className="p-2 text-center">{sub.reviseNumber}</td>
-                                  <td className="p-2">Revision of {record.nameOfWork}</td>
-                                  <td className="p-2">{new Date(sub.createdDate).toLocaleString()}</td>
-                                  <td className="p-2">
-                                    <div className="flex items-center gap-2">
-                                      <span className="px-2 py-1 bg-gray-200 text-gray-700 rounded text-xs">
-                                        {sub.revisionStage}
-                                      </span>
-                                      
-                                      {sub.pdfLocation ? (
-                                        <button 
-                                          onClick={() => handlePDF(sub.pdfLocation)} 
-                                          title="View PDF"
-                                          className="p-1 hover:bg-purple-100 rounded transition-colors text-purple-700"
-                                        >
-                                          <FaFilePdf size={16} className="text-purple-700" />
-                                        </button>
-                                      ) : (
-                                        <div 
-                                          className="p-1 text-gray-400 opacity-50 cursor-not-allowed" 
-                                          title="PDF not available" 
-                                        >
-                                          <FaFilePdf size={16} />
-                                        </div>
-                                      )}
-<button
+                {expandedRows[record.id] && (
+  <tr>
+    <td colSpan="9" className="bg-gray-50 p-4">
+      {subRecords[record.id] === undefined ? (
+        <div className="text-center py-4 text-blue-400">Loading revisions...</div>
+      ) : subRecords[record.id].length === 0 ? (
+        <div className="text-center py-4 text-gray-500">
+          No revisions found for this work order
+        </div>
+      ) : (
+        <table className="w-full border">
+          <thead className="bg-gray-100">
+            <tr>
+              <th className="p-2">Revision #</th>
+              <th className="p-2">Revision Name</th>
+              <th className="p-2">Date</th>
+              <th className="p-2">Status</th>
+              <th className="p-2">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {subRecords[record.id].map((sub) => (
+              <tr key={sub.id} className="border-t hover:bg-gray-100">
+                <td className="p-2 text-center">{sub.reviseNumber}</td>
+                <td className="p-2">Revision of {record.nameOfWork}</td>
+                <td className="p-2">{new Date(sub.createdDate).toLocaleString()}</td>
+                <td className="p-2">
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      sub.revisionStatus?.toLowerCase() === 'completed'
+                        ? 'bg-green-100 text-green-800'
+                        : sub.revisionStatus?.toLowerCase() === 'started'
+                        ? 'bg-blue-100 text-blue-800'
+                        : 'bg-gray-200 text-gray-700'
+                    }`}
+                  >
+                    {sub.revisionStatus}
+                  </span>
+                </td>
+                <td className="p-3 flex gap-3 items-center">
+                <button
+  onClick={() => handleDuplicateRevision(record.id, sub, record)}
+  className="text-blue-600 hover:underline"
   title="Duplicate Revision"
-  onClick={() => handleDuplicateRevision(record.id, sub.id, { ...record, reviseNumber: sub.reviseNumber })}
-  className="p-1 hover:bg-blue-100 rounded transition-colors text-blue-600"
 >
   <Copy size={16} />
 </button>
 
-                                      
-                                      <button
-                                        title="Delete Revision"
-                                        onClick={() => handleDeleteRevision(record.id, sub.id)}
-                                        className="p-1 hover:bg-red-100 rounded transition-colors text-red-600"
-                                      >
-                                        <Trash2 size={16} />
-                                      </button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        )}
-                      </td>
-                    </tr>
-                  )}
+                  <button
+                    onClick={() => {
+                      localStorage.setItem('recordId', record.id);
+                      localStorage.setItem('editMode', 'true');
+                      localStorage.setItem("reviseId", "");
+                      localStorage.setItem("reviseno", "1.0");
+                      navigate('/subestimate');
+                    }}
+                    className="text-green-600 hover:underline"
+                    title="Edit"
+                  >
+                    <Edit size={16} />
+                  </button>
+                  {sub.pdfLocation
+                    ? (
+                      <button
+                        onClick={() => window.open(sub.pdfLocation, "_blank")}
+                        className="text-purple-700 hover:underline"
+                        title="View PDF"
+                      >
+                        <FaFilePdf size={16} />
+                      </button>
+                    ) : (
+                      <span className="text-gray-400 opacity-50 cursor-not-allowed" title="PDF not available">
+                        <FaFilePdf size={16} />
+                      </span>
+                    )}
+                  <button
+                    onClick={() => handleDeleteRevision(record.id, sub.id)}
+                    className="text-red-600 hover:underline"
+                    title="Delete Revision"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </td>
+  </tr>
+)}
+
                 </React.Fragment>
               ))}
             </tbody>

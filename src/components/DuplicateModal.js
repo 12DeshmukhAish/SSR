@@ -7,7 +7,7 @@ const DuplicateModal = ({ workorderId, onClose }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const token = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI5MjA5MTYwNjEyIiwiaWF0IjoxNzQ0NDM2NDMwLCJleHAiOjE3NDQ1MjI4MzB9.T_YSsBeIwdvbKBECM79ZHJ5Z3_cCMQeCwMSlF3fHH6g";
+  const token = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI5MjA5MTYwNjEyIiwiaWF0IjoxNzQ1NDIzNjczLCJleHAiOjE3NDU1MTAwNzN9.4cfviErztGCET2mb3Wg34JnFbm24Y8EPIfHAMN84XIQ";
 
   useEffect(() => {
     if (workorderId) {
@@ -22,7 +22,7 @@ const DuplicateModal = ({ workorderId, onClose }) => {
 
     try {
       const response = await fetch(
-        `http://24.101.103.87:8082/api/workorder-revisions/ByWorkorderId/${workorderId}`,
+        `https://24.101.103.87:8082/api/workorder-revisions/ByWorkorderId/${workorderId}`,
         {
           method: "GET",
           headers: {
@@ -42,10 +42,15 @@ const DuplicateModal = ({ workorderId, onClose }) => {
       }
 
       const filteredRevisions = data.filter(rev =>
-        rev && rev.deletedFlag?.toString().toLowerCase() === "no"
+        rev && rev.deletedFlag?.toString().toLowerCase() !== "yes"
       );
 
-      setRevisions(filteredRevisions);
+      // Remove duplicates and sort numerically based on reviseNumber
+      const uniqueSorted = Array.from(
+        new Map(filteredRevisions.map(rev => [rev.reviseNumber, rev])).values()
+      ).sort((a, b) => parseFloat(a.reviseNumber) - parseFloat(b.reviseNumber));
+
+      setRevisions(uniqueSorted);
     } catch (err) {
       console.error("Error fetching revisions:", err);
       setError("Failed to load revisions. Please try again.");

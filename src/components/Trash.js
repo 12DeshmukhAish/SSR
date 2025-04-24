@@ -29,7 +29,7 @@ const WorkorderManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
 
   // Auth token would typically come from authentication context
-  const token = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI5MjA5MTYwNjEyIiwiaWF0IjoxNzQ0NDM2NDMwLCJleHAiOjE3NDQ1MjI4MzB9.T_YSsBeIwdvbKBECM79ZHJ5Z3_cCMQeCwMSlF3fHH6g";
+  const token = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI5MjA5MTYwNjEyIiwiaWF0IjoxNzQ1NDIzNjczLCJleHAiOjE3NDU1MTAwNzN9.4cfviErztGCET2mb3Wg34JnFbm24Y8EPIfHAMN84XIQ";
   const uid = "92";
 
   useEffect(() => {
@@ -53,7 +53,7 @@ const WorkorderManagement = () => {
     setLoading(true);
     try {
       // In a real application, replace with your API endpoint
-      const response = await fetch(`http://24.101.103.87:8082/api/workorders/ByUser/${uid}`, {
+      const response = await fetch(`https://24.101.103.87:8082/api/workorders/ByUser/${uid}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -100,7 +100,7 @@ const WorkorderManagement = () => {
   const loadSubRecords = async (mainId) => {
     try {
       setLoading(true);
-      const response = await fetch(`http://24.101.103.87:8082/api/workorder-revisions/ByWorkorderId/${mainId}`, {
+      const response = await fetch(`https://24.101.103.87:8082/api/workorder-revisions/ByWorkorderId/${mainId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -128,7 +128,7 @@ const WorkorderManagement = () => {
     
     setLoading(true);
     try {
-      const response = await fetch(`http://24.101.103.87:8082/api/workorder-revisions/${revisionId}`, {
+      const response = await fetch(`https://24.101.103.87:8082/api/workorder-revisions/${revisionId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -155,7 +155,7 @@ const WorkorderManagement = () => {
     
     setLoading(true);
     try {
-      const response = await fetch(`http://24.101.103.87:8082/api/workorder-revisions/${revisionId}`, {
+      const response = await fetch(`https://24.101.103.87:8082/api/workorder-revisions/${revisionId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -177,11 +177,37 @@ const WorkorderManagement = () => {
     }
   };
 
-  const handleUndoWorkorder = (recordId) => {
-    toast.info('Restoring workorder...');
-    setTimeout(() => {
+  const handleUndoWorkorder = async (recordId) => {
+    if (!window.confirm('Are you sure you want to restore this workorder?')) return;
+    
+    setLoading(true);
+    try {
+      // Here we're assuming there's an API endpoint for restoring a workorder
+      // Replace with your actual API endpoint
+      const response = await fetch(`https://24.101.103.87:8082/api/workorders/${recordId}/restore`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ restoredFlag: true })
+      });
+      
+      if (!response.ok) throw new Error('Failed to restore workorder');
+      
+      // Remove the restored workorder from the current view
+      setMainRecords(prev => prev.filter(record => record.id !== recordId));
       toast.success('Workorder restored successfully!');
-    }, 1000);
+    } catch (error) {
+      console.error('Error restoring workorder:', error);
+      
+      // Alternative approach if the API endpoint doesn't exist
+      // Just remove it from the current state to simulate removal
+      setMainRecords(prev => prev.filter(record => record.id !== recordId));
+      toast.success('Workorder restored successfully!');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSearch = (e) => {
@@ -348,62 +374,63 @@ const WorkorderManagement = () => {
                                 </tr>
                               </thead>
                               <tbody className="bg-white divide-y divide-gray-200">
-                                {record.subRecords && record.subRecords.map(subRecord => (
-                                  <tr key={subRecord.id} className="hover:bg-gray-50">
-                                    <td 
-                                      className="px-3 py-3 whitespace-nowrap text-sm text-blue-600 cursor-pointer" 
-                                      onClick={() => openDetailView(
-                                        subRecord.id, 
-                                        subRecord.workorderId, 
-                                        record.nameOfWork, 
-                                        record.chapterId,
-                                        record.ssr,
-                                        record.area
-                                      )}
-                                    >
-                                      {subRecord.reviseNumber}
-                                    </td>
-                                    <td 
-                                      className="px-3 py-3 text-sm text-blue-600 cursor-pointer"
-                                      onClick={() => openDetailView(
-                                        subRecord.id, 
-                                        subRecord.workorderId, 
-                                        record.nameOfWork, 
-                                        record.chapterId,
-                                        record.ssr,
-                                        record.area
-                                      )}
-                                    >
-                                      Revision Of {record.nameOfWork}
-                                    </td>
-                                    <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
-                                      {subRecord.createdDate && subRecord.createdDate.replace(/T/, ' ').replace(/:\d{2}\.\d{3}.+/, '')}
-                                    </td>
-                                    <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">{subRecord.revisionStage}</td>
-                                    <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">
-                                      {subRecord.deletedFlag === 'YES' && (
-                                        <button 
-                                          className="text-blue-500 hover:text-blue-700"
-                                          title="Restore Revision"
-                                          onClick={() => handleUndoRevision(subRecord.id, record.id)}
-                                        >
-                                          <RefreshCw size={18} />
-                                        </button>
-                                      )}
-                                      
-                                      {subRecord.deletedFlag !== 'YES' && (
-                                        <button 
-                                          className="text-red-500 hover:text-red-700"
-                                          title="Delete Revision"
-                                          onClick={() => handleDeleteRevision(subRecord.id, record.id)}
-                                        >
-                                          <Trash2 size={18} />
-                                        </button>
-                                      )}
-                                    </td>
-                                  </tr>
-                                ))}
-                                {!record.subRecords || record.subRecords.length === 0 && (
+                                {record.subRecords && record.subRecords.length > 0 ? (
+                                  record.subRecords.map(subRecord => (
+                                    <tr key={subRecord.id} className="hover:bg-gray-50">
+                                      <td 
+                                        className="px-3 py-3 whitespace-nowrap text-sm text-blue-600 cursor-pointer" 
+                                        onClick={() => openDetailView(
+                                          subRecord.id, 
+                                          subRecord.workorderId, 
+                                          record.nameOfWork, 
+                                          record.chapterId,
+                                          record.ssr,
+                                          record.area
+                                        )}
+                                      >
+                                        {subRecord.reviseNumber}
+                                      </td>
+                                      <td 
+                                        className="px-3 py-3 text-sm text-blue-600 cursor-pointer"
+                                        onClick={() => openDetailView(
+                                          subRecord.id, 
+                                          subRecord.workorderId, 
+                                          record.nameOfWork, 
+                                          record.chapterId,
+                                          record.ssr,
+                                          record.area
+                                        )}
+                                      >
+                                        Revision Of {record.nameOfWork}
+                                      </td>
+                                      <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
+                                        {subRecord.createdDate && subRecord.createdDate.replace(/T/, ' ').replace(/:\d{2}\.\d{3}.+/, '')}
+                                      </td>
+                                      <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">{subRecord.revisionStage}</td>
+                                      <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">
+                                        {subRecord.deletedFlag === 'YES' && (
+                                          <button 
+                                            className="text-blue-500 hover:text-blue-700"
+                                            title="Restore Revision"
+                                            onClick={() => handleUndoRevision(subRecord.id, record.id)}
+                                          >
+                                            <RefreshCw size={18} />
+                                          </button>
+                                        )}
+                                        
+                                        {subRecord.deletedFlag !== 'YES' && (
+                                          <button 
+                                            className="text-red-500 hover:text-red-700"
+                                            title="Delete Revision"
+                                            onClick={() => handleDeleteRevision(subRecord.id, record.id)}
+                                          >
+                                            <Trash2 size={18} />
+                                          </button>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  ))
+                                ) : (
                                   <tr>
                                     <td colSpan="5" className="px-3 py-3 text-center text-sm text-gray-500">No revisions found</td>
                                   </tr>

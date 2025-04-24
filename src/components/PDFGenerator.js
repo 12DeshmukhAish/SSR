@@ -12,11 +12,11 @@ const PDFGenerator = () => {
   const workOrderId = localStorage.getItem('pdfWorkOrderId') || '';
   const revisionNumber = localStorage.getItem('pdfRevisionNumber') || '1.0';
 
-  const token = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI5MjA5MTYwNjEyIiwiaWF0IjoxNzQ0NDM2NDMwLCJleHAiOjE3NDQ1MjI4MzB9.T_YSsBeIwdvbKBECM79ZHJ5Z3_cCMQeCwMSlF3fHH6g'; // store in env ideally
+  const token = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI5MjA5MTYwNjEyIiwiaWF0IjoxNzQ1NDIzNjczLCJleHAiOjE3NDU1MTAwNzN9.4cfviErztGCET2mb3Wg34JnFbm24Y8EPIfHAMN84XIQ"; // store in env ideally
 
   const fetchMeasurements = async (itemId) => {
     try {
-      const res = await fetch(`http://24.101.103.87:8082/api/txn-items-mts/ByItemId/${itemId}`, {
+      const res = await fetch(`https://24.101.103.87:8082/api/txn-items-mts/ByItemId/${itemId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       return await res.json();

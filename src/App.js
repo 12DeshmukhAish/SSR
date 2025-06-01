@@ -17,6 +17,11 @@ import DuplicateEstimate from "./components/DuplicateModal";
 import EditEstimatePage from "./components/EditEstimate";
 import EditSubEstimateForm from "./components/EditSubEstimate";
 import WorkorderManagement from "./components/Trash";
+import CoverPageCreator from "./components/Cover";
+import CoverPageGenerator from "./components/Cover";
+import ConstructionEstimateComponent from "./components/ConstructionEstimate";
+import TermsAndConditions from "./components/TermandCondition";
+import PrivacyPolicy from "./components/Privacy";
 
 function Layout({ children }) {
   return (
@@ -37,6 +42,22 @@ function App() {
         <Route path="/signup" element={<SignupForm />} />
         <Route path="/signin" element={<SignInPage />} />
         <Route path="/forgotpwd" element={<ForgotPasswordPage />} />
+          <Route
+          path="/policy"
+          element={
+            
+              <PrivacyPolicy />
+            
+          }
+        />
+         <Route
+          path="/termsandconditions"
+          element={
+            
+              <TermsAndConditions />
+            
+          }
+        />
       
       
 
@@ -83,11 +104,29 @@ function App() {
             </Layout>
           }
         />
+        <Route
+          path="/cover"
+          element={
+            <Layout>
+              <CoverPageGenerator />
+            </Layout>
+          }
+        />
+        
          <Route
           path="/report"
           element={
             <Layout>
               <PDFPage />
+            </Layout>
+          }
+        />
+       
+         <Route
+          path="/abstract"
+          element={
+            <Layout>
+              <ConstructionEstimateComponent />
             </Layout>
           }
         />

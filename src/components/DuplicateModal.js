@@ -7,7 +7,7 @@ const DuplicateModal = ({ workorderId, onClose }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const token = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI5MjA5MTYwNjEyIiwiaWF0IjoxNzQ1NDIzNjczLCJleHAiOjE3NDU1MTAwNzN9.4cfviErztGCET2mb3Wg34JnFbm24Y8EPIfHAMN84XIQ";
+   const jwtToken = localStorage.getItem('authToken');
 
   useEffect(() => {
     if (workorderId) {
@@ -27,7 +27,7 @@ const DuplicateModal = ({ workorderId, onClose }) => {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`
+            "Authorization": `Bearer ${jwtToken}`
           }
         }
       );

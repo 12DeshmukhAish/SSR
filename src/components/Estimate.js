@@ -16,8 +16,13 @@ const EstimateForm = () => {
   const [selectedArea, setSelectedArea] = useState('General Area');
   const [areaPercentage, setAreaPercentage] = useState('0');
   const [workOrderId, setWorkOrderId] = useState('');
-  const [preparedBySignature, setPreparedBySignature] = useState('');
-  const [checkedBySignature, setCheckedBySignature] = useState('');
+
+  const [preparedBySignature, setPreparedBySignature] = useState("");
+  const [checkedBySignature, setCheckedBySignature] = useState("");
+  const [showPreparedBySuggestions, setShowPreparedBySuggestions] = useState(false);
+  const [showCheckedBySuggestions, setShowCheckedBySuggestions] = useState(false);
+  const [preparedBySuggestions, setPreparedBySuggestions] = useState([]);
+  const [checkedBySuggestions, setCheckedBySuggestions] = useState([]);
   const [chapters, setChapters] = useState([]);
   const [isMultipleFloor, setIsMultipleFloor] = useState(false);
   const [showMultipleFloorCheckbox, setShowMultipleFloorCheckbox] = useState(false);
@@ -33,7 +38,7 @@ const userId = localStorage.getItem("Id") || "92";
 
 
 
-  const jwtToken = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI5MjA5MTYwNjEyIiwiaWF0IjoxNzQ1NDIzNjczLCJleHAiOjE3NDU1MTAwNzN9.4cfviErztGCET2mb3Wg34JnFbm24Y8EPIfHAMN84XIQ";
+   const jwtToken = localStorage.getItem('authToken');
   const API_BASE_URL = "https://24.101.103.87:8082/api";
 
   const states = [
@@ -115,7 +120,24 @@ if (chapterObj && chapterObj.chapterCategory.toLowerCase().includes("building wo
     }
   }, []);
   localStorage.setItem("estimateUpdated", "true");
-
+  useEffect(() => {
+    // Load signature history from localStorage
+    const savedPreparedBy = JSON.parse(localStorage.getItem("signatureHistory_preparedBy") || "[]");
+    const savedCheckedBy = JSON.parse(localStorage.getItem("signatureHistory_checkedBy") || "[]");
+    
+    setPreparedBySuggestions(savedPreparedBy);
+    setCheckedBySuggestions(savedCheckedBy);
+    
+    // Also load the current values if in edit mode
+    const isEditMode = localStorage.getItem("editMode") === "true";
+    if (isEditMode) {
+      setPreparedBySignature(localStorage.getItem("edit_preparedBy") || "");
+      setCheckedBySignature(localStorage.getItem("edit_checkedBy") || "");
+    } else {
+      setPreparedBySignature(localStorage.getItem("form_preparedBySignature") || "");
+      setCheckedBySignature(localStorage.getItem("form_checkedBySignature") || "");
+    }
+  }, []);
   useEffect(() => {
     const isEditMode = localStorage.getItem("editMode") === "true";
     const chapterVal = localStorage.getItem("edit_chapter") || "";
@@ -287,7 +309,45 @@ if (chapterObj && chapterObj.chapterCategory.toLowerCase().includes("building wo
   };
   
   // Check for duplicate revision number (excluding current revision being edited)
-
+  const saveSignatureToHistory = (type, value) => {
+    if (!value.trim()) return;
+    
+    // Get current history array
+    const historyKey = `signatureHistory_${type}`;
+    const currentHistory = JSON.parse(localStorage.getItem(historyKey) || "[]");
+    
+    // Only add if it's not already in the list
+    if (!currentHistory.includes(value)) {
+      // Add to beginning of the array (most recent first)
+      const updatedHistory = [value, ...currentHistory];
+      
+      // Limit to 10 items to prevent localStorage from growing too large
+      const limitedHistory = updatedHistory.slice(0, 10);
+      
+      // Save updated history
+      localStorage.setItem(historyKey, JSON.stringify(limitedHistory));
+      
+      // Update state
+      if (type === "preparedBy") {
+        setPreparedBySuggestions(limitedHistory);
+      } else {
+        setCheckedBySuggestions(limitedHistory);
+      }
+    }
+  };
+  
+  // Handle signature selection
+  const handleSelectSignature = (type, value) => {
+    if (type === "preparedBy") {
+      setPreparedBySignature(value);
+      setShowPreparedBySuggestions(false);
+      localStorage.setItem("form_preparedBySignature", value);
+    } else {
+      setCheckedBySignature(value);
+      setShowCheckedBySuggestions(false);
+      localStorage.setItem("form_checkedBySignature", value);
+    }
+  };
 
   const createInitialRevision = async (workorderId) => {
     const revisionPayload = {
@@ -830,38 +890,86 @@ const addWork = async () => {
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                  <div>
-                    <label htmlFor="preparedBySignature" className="block mb-1 font-medium">Prepared By:</label>
-                    <textarea 
-                      placeholder="Prepared By..." 
-                      className="w-full p-2 border border-gray-300 rounded-md" 
-                      rows="5" 
-                      id="preparedBySignature"
-                      value={preparedBySignature}
-                      onChange={(e) => {
-                        setPreparedBySignature(e.target.value);
-                        localStorage.setItem("form_preparedBySignature", e.target.value);
-                      }}
-                      
-                    ></textarea>
-                  </div>
+    <div className="relative">
+      <label htmlFor="preparedBySignature" className="block mb-1 font-medium">
+        Prepared By:
+      </label>
+      <textarea
+        placeholder="Prepared By..."
+        className="w-full p-2 border border-gray-300 rounded-md"
+        rows="5"
+        id="preparedBySignature"
+        value={preparedBySignature}
+        onChange={(e) => {
+          setPreparedBySignature(e.target.value);
+          localStorage.setItem("form_preparedBySignature", e.target.value);
+        }}
+        onFocus={() => setShowPreparedBySuggestions(true)}
+        onBlur={() => {
+          // Delay hiding suggestions to allow clicking on them
+          setTimeout(() => {
+            setShowPreparedBySuggestions(false);
+            saveSignatureToHistory("preparedBy", preparedBySignature);
+          }, 200);
+        }}
+      ></textarea>
+      
+      {/* Suggestions dropdown for Prepared By */}
+      {showPreparedBySuggestions && preparedBySuggestions.length > 0 && (
+        <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+          {preparedBySuggestions.map((suggestion, index) => (
+            <div 
+              key={index}
+              className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+              onClick={() => handleSelectSignature("preparedBy", suggestion)}
+            >
+              {suggestion}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
                   
-                  <div>
-                    <label htmlFor="checkedBySignature" className="block mb-1 font-medium">Checked By:</label>
-                    <textarea 
-                      placeholder="Checked By ..." 
-                      className="w-full p-2 border border-gray-300 rounded-md" 
-                      rows="5" 
-                      id="checkedBySignature"
-                      value={checkedBySignature}
-                      onChange={(e) => {
-                        setCheckedBySignature(e.target.value);
-                        localStorage.setItem("form_checkedBySignature", e.target.value);
-                      }}
-                      
-                    ></textarea>
-                  </div>
-                </div>
+    <div className="relative">
+      <label htmlFor="checkedBySignature" className="block mb-1 font-medium">
+        Checked By:
+      </label>
+      <textarea
+        placeholder="Checked By ..."
+        className="w-full p-2 border border-gray-300 rounded-md"
+        rows="5"
+        id="checkedBySignature"
+        value={checkedBySignature}
+        onChange={(e) => {
+          setCheckedBySignature(e.target.value);
+          localStorage.setItem("form_checkedBySignature", e.target.value);
+        }}
+        onFocus={() => setShowCheckedBySuggestions(true)}
+        onBlur={() => {
+          // Delay hiding suggestions to allow clicking on them
+          setTimeout(() => {
+            setShowCheckedBySuggestions(false);
+            saveSignatureToHistory("checkedBy", checkedBySignature);
+          }, 200);
+        }}
+      ></textarea>
+      
+      {/* Suggestions dropdown for Checked By */}
+      {showCheckedBySuggestions && checkedBySuggestions.length > 0 && (
+        <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+          {checkedBySuggestions.map((suggestion, index) => (
+            <div 
+              key={index}
+              className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+              onClick={() => handleSelectSignature("checkedBy", suggestion)}
+            >
+              {suggestion}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+    </div>
                 
                 <div className="flex space-x-4">
                   <button 

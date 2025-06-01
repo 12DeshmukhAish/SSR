@@ -22,65 +22,65 @@ const MyWork = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [isLoading, setIsLoading] = useState(false);
-  const isEditMode = localStorage.getItem("editMode") === "true";
-const isDuplicateRevision = localStorage.getItem("duplicateRevision") === "true";
-const existingRevisionId = localStorage.getItem("reviseId");
+  
+  // Get token from localStorage instead of hardcoded
+  const token = localStorage.getItem('authToken');
+  const uid = localStorage.getItem('Id') || 92;
 
-
-useEffect(() => {
   const isEditMode = localStorage.getItem("editMode") === "true";
   const isDuplicateRevision = localStorage.getItem("duplicateRevision") === "true";
+  const existingRevisionId = localStorage.getItem("reviseId");
 
-  const createDuplicateRevision = async () => {
-    const existingRevisionId = localStorage.getItem("reviseId");
-    const API_BASE_URL = "https://24.101.103.87:8082/api";
-    const jwtToken = token;
+  useEffect(() => {
+    const isEditMode = localStorage.getItem("editMode") === "true";
+    const isDuplicateRevision = localStorage.getItem("duplicateRevision") === "true";
 
-    if (isEditMode && isDuplicateRevision) {
-      const revisionPayload = {
-        workorderId: parseInt(localStorage.getItem("recordId")),
-        reviseNumber: localStorage.getItem("reviseno") || "1.1",
-        createdDate: new Date().toISOString(),
-        createdBy: parseInt(localStorage.getItem("Id") || "92"),
-        updatedBy: parseInt(localStorage.getItem("Id") || "92"),
-        updatedDate: new Date().toISOString(),
-        currentFlag: true,
-        deletedFlag: "no",
-        pdfLocation: "",
-        revisionStage: "started",
-        revisionStatus: "pending"
-      };
+    const createDuplicateRevision = async () => {
+      const existingRevisionId = localStorage.getItem("reviseId");
+      const API_BASE_URL = "https://24.101.103.87:8082/api";
 
-      try {
-        const res = await fetch(`${API_BASE_URL}/workorder-revisions`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${jwtToken}`
-          },
-          body: JSON.stringify(revisionPayload)
-        });
+      if (isEditMode && isDuplicateRevision) {
+        const revisionPayload = {
+          workorderId: parseInt(localStorage.getItem("recordId")),
+          reviseNumber: localStorage.getItem("reviseno") || "1.1",
+          createdDate: new Date().toISOString(),
+          createdBy: parseInt(localStorage.getItem("Id") || "92"),
+          updatedBy: parseInt(localStorage.getItem("Id") || "92"),
+          updatedDate: new Date().toISOString(),
+          currentFlag: true,
+          deletedFlag: "no",
+          pdfLocation: "",
+          revisionStage: "started",
+          revisionStatus: "pending"
+        };
 
-        const newRevData = await res.json();
-        localStorage.setItem("reviseId", newRevData.id);
-        toast.success("Revision duplicated successfully!");
-        setTimeout(() => {
-          window.location.href = "/subestimate";
-        }, 1000);
-      } catch (err) {
-        toast.error("Failed to duplicate revision: " + err.message);
+        try {
+          const res = await fetch(`${API_BASE_URL}/workorder-revisions`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(revisionPayload)
+          });
+
+          const newRevData = await res.json();
+          localStorage.setItem("reviseId", newRevData.id);
+          toast.success("Revision duplicated successfully!");
+          setTimeout(() => {
+            window.location.href = "/subestimate";
+          }, 1000);
+        } catch (err) {
+          toast.error("Failed to duplicate revision");
+        }
+
+        localStorage.removeItem("duplicateRevision");
       }
+    };
 
-      localStorage.removeItem("duplicateRevision");
-    }
-  };
+    createDuplicateRevision();
+  }, [token]);
 
-  createDuplicateRevision();
-}, []);
-
-
-  const token = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI5MjA5MTYwNjEyIiwiaWF0IjoxNzQ1NDIzNjczLCJleHAiOjE3NDU1MTAwNzN9.4cfviErztGCET2mb3Wg34JnFbm24Y8EPIfHAMN84XIQ";
-  const uid = 92;
   useEffect(() => {
     fetchData();
     const updated = localStorage.getItem("estimateUpdated");
@@ -96,7 +96,6 @@ useEffect(() => {
 
   const fetchData = async () => {
     setIsLoading(true);
-    const loadingToast = toast.loading('Loading work orders...');
     
     try {
       const response = await fetch(`https://24.101.103.87:8082/api/workorders/ByUser/${uid}`, {
@@ -117,7 +116,7 @@ useEffect(() => {
         throw new Error('Expected array but received: ' + JSON.stringify(data));
       }
   
-      // ✅ Filter and sort by createdDate (newest first)
+      // Filter and sort by createdDate (newest first)
       const sorted = data
         .filter(item => item.deletedFlag === 0)
         .sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
@@ -129,20 +128,17 @@ useEffect(() => {
       }));
   
       setRecords(indexedRecords);
-      toast.success('Work orders loaded successfully', { id: loadingToast });
     } catch (err) {
       console.error('fetchData failed:', err.message);
-      toast.error(`Failed to fetch data: ${err.message}`, { id: loadingToast });
+      toast.error('Failed to load work orders');
     } finally {
       setIsLoading(false);
     }
   };
   
-  
   // Handle Add New button click
   const handleAddNew = () => {
     navigate('/estimate');
-    toast.success('Creating new estimate');
   };
 
   // Handle WhatsApp button click
@@ -158,12 +154,9 @@ useEffect(() => {
   
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
     window.open(whatsappUrl, '_blank');
-    toast.success('Opening WhatsApp to share records');
   };
   
   const fetchSubRecords = async (workorderId) => {
-    const loadingToast = toast.loading('Loading revisions...');
-    
     try {
       const response = await fetch(`https://24.101.103.87:8082/api/workorder-revisions/ByWorkorderId/${workorderId}`, {
         headers: {
@@ -184,10 +177,9 @@ useEffect(() => {
       const filtered = data.filter(rec => rec.deletedFlag.toLowerCase() === 'no');
       setSubRecords(prev => ({ ...prev, [workorderId]: filtered }));
       
-      toast.success(`${filtered.length} revisions found`, { id: loadingToast });
     } catch (err) {
       console.error(err);
-      toast.error(`Failed to load revisions: ${err.message}`, { id: loadingToast });
+      toast.error('Failed to load revisions');
     }
   };
 
@@ -222,63 +214,66 @@ useEffect(() => {
         setSubRecords(prev => ({ ...prev, [id]: filtered }));
       } catch (err) {
         setSubRecords(prev => ({ ...prev, [id]: [] }));
-        toast.error(`Failed to load revisions: ${err.message}`);
+        toast.error('Failed to load revisions');
       }
     }
   };
   
-
   const handleDelete = async (id) => {
     // Show confirmation toast
-    toast((t) => (
-      <div className="flex flex-col p-2">
-        <p className="mb-2 font-medium">Are you sure you want to delete this work order?</p>
-        <div className="flex justify-end gap-2">
-          <button
-            onClick={() => toast.dismiss(t.id)}
-            className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={async () => {
-              toast.dismiss(t.id);
-              const deleteToast = toast.loading('Deleting record...');
-              
-              try {
-                const response = await fetch(`https://24.101.103.87:8082/api/workorders/${id}`, {
-                  method: 'PUT',
-                  headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({ deletedFlag: 1 }),
-                });
+    toast(
+      (t) => (
+        <div className="flex flex-col gap-2 bg-white p-2 rounded-lg">
+          <p>Are you sure you want to delete this work order?</p>
+          <div className="flex gap-2 justify-end">
+            <button
+              onClick={() => toast.dismiss(t.id)}
+              className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={async () => {
+                toast.dismiss(t.id);
                 
-                if (!response.ok) {
-                  throw new Error(`Server error: ${response.status}`);
+                try {
+                  const response = await fetch(`https://24.101.103.87:8082/api/workorders/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ deletedFlag: 1 }),
+                  });
+                  
+                  if (!response.ok) {
+                    const errorData = await response.json().catch(() => null);
+                    console.error('Error response:', errorData);
+                    throw new Error(`Server error: ${response.status}`);
+                  }
+                  
+                  toast.success('Record deleted successfully!');
+                  fetchData(); // Refresh records
+                } catch (err) {
+                  console.error(err);
+                  toast.error('Failed to delete record');
                 }
-                
-                toast.success('Record deleted successfully!', { id: deleteToast });
-                fetchData(); // Refresh records
-              } catch (err) {
-                console.error(err);
-                toast.error(`Failed to delete record: ${err.message}`, { id: deleteToast });
-              }
-            }}
-            className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
-          >
-            Delete
-          </button>
+              }}
+              className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+            >
+              Delete
+            </button>
+          </div>
         </div>
-      </div>
-    ), { duration: 10000 });
+      ),
+      { duration: 10000 }
+    );
   };
 
   const handleDeleteRevision = async (mainId, revisionId) => {
     // Show confirmation toast
     toast((t) => (
-      <div className="flex flex-col p-2">
+      <div className="flex flex-col p-2 bg-white rounded-lg">
         <p className="mb-2 font-medium">Are you sure you want to delete this revision?</p>
         <div className="flex justify-end gap-2">
           <button
@@ -290,7 +285,6 @@ useEffect(() => {
           <button
             onClick={async () => {
               toast.dismiss(t.id);
-              const deleteToast = toast.loading('Deleting revision...');
               
               try {
                 const response = await fetch(`https://24.101.103.87:8082/api/workorder-revisions/${revisionId}`, {
@@ -306,11 +300,11 @@ useEffect(() => {
                   throw new Error(`Server error: ${response.status}`);
                 }
                 
-                toast.success('Revision deleted successfully!', { id: deleteToast });
+                toast.success('Revision deleted successfully!');
                 fetchSubRecords(mainId); // Refresh sub-records
               } catch (err) {
                 console.error(err);
-                toast.error(`Failed to delete revision: ${err.message}`, { id: deleteToast });
+                toast.error('Failed to delete revision');
               }
             }}
             className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
@@ -321,32 +315,7 @@ useEffect(() => {
       </div>
     ), { duration: 10000 });
   };
-  // const handleDuplicateRevision = (workorderId, revisionId, record) => {
-  //   const oldRevNo = parseFloat(record.reviseNumber);
-  //   const newRevNo = (oldRevNo + 0.1).toFixed(1); // e.g., 1.0 -> 1.1
-  
-  //   localStorage.setItem("editMode", "true");
-  //   localStorage.setItem("recordId", workorderId);
-  //   localStorage.setItem("reviseId", ""); // new revision will be created
-  //   localStorage.setItem("reviseno", newRevNo); // updated revision number
-  //   localStorage.setItem("duplicateRevision", "true");
-  
-  //   // Save fields to prefill EstimateForm
-  //   localStorage.setItem("edit_nameOfWork", record.nameOfWork);
-  //   localStorage.setItem("edit_state", record.state);
-  //   localStorage.setItem("edit_department", record.department);
-  //   localStorage.setItem("edit_ssr", record.ssr);
-  //   localStorage.setItem("edit_area", record.area);
-  //   localStorage.setItem("edit_preparedBy", record.preparedBySignature);
-  //   localStorage.setItem("edit_checkedBy", record.checkedBySignature);
-  //   localStorage.setItem("edit_chapter", record.chapterId?.toString());
-  
-  //   localStorage.setItem("autogenerated", record.workOrderID);
-  //   localStorage.setItem("status", record.status);
-  //   localStorage.setItem("revisionStage", "started");
-  
-  //   window.location.href = "/estimate";
-  // };
+
   const fetchRevisions = async (workorderId) => {
     try {
       const response = await fetch(
@@ -358,10 +327,6 @@ useEffect(() => {
       if (!response.ok) throw new Error("Failed to fetch revisions");
   
       const revisions = await response.json();
-      // 1. Only non-deleted
-      // 2. Only revisions with valid (non-empty) reviseNumber
-      // 3. Sort by reviseNumber as numbers (not string)
-      // 4. No gaps: force an array of reviseNumbers from 1.0 up, filling missing with null (for pure display), but for duplication, **use the max+0.1**
       const filtered = (revisions || [])
         .filter(r =>
           r.deletedFlag !== undefined &&
@@ -376,6 +341,7 @@ useEffect(() => {
       return [];
     }
   };
+
   const fetchRevisionById = async (revisionId) => {
     try {
       const response = await fetch(`https://24.101.103.87:8082/api/workorder-revisions/${revisionId}`, {
@@ -392,7 +358,7 @@ useEffect(() => {
       const data = await response.json();
       return Array.isArray(data) ? data[0] : data;
     } catch (err) {
-      toast.error(`Error fetching revision: ${err.message}`);
+      toast.error('Error fetching revision');
       return null;
     }
   };
@@ -407,7 +373,6 @@ useEffect(() => {
     return (Math.round((max + 0.1) * 10) / 10).toFixed(1); // Always increments to next .1
   }
   
-  
   const handleDuplicateRevision = async (workorderId, revisionToCopy, workorderRecord) => {
     // 1. Fetch all current revisions for the workorder
     const allRevisions = await fetchRevisions(workorderId);
@@ -418,7 +383,7 @@ useEffect(() => {
     localStorage.setItem("editMode", "true");
     localStorage.setItem("recordId", workorderId);
     localStorage.setItem("reviseId", ""); // Always blank for new
-    localStorage.setItem("reviseno", nextRevNumber); // <-- Use this
+    localStorage.setItem("reviseno", nextRevNumber);
     localStorage.setItem("duplicateRevision", "true");
     localStorage.setItem("edit_nameOfWork", workorderRecord.nameOfWork || "");
     localStorage.setItem("edit_state", workorderRecord.state || "");
@@ -431,32 +396,21 @@ useEffect(() => {
     localStorage.setItem("autogenerated", workorderRecord.workOrderID);
     localStorage.setItem("status", workorderRecord.status);
     localStorage.setItem("revisionStage", "started");
-    // ...add any extra fields you use
   
     toast.success(`Duplicating revision as ${nextRevNumber}`);
     navigate("/subestimate");
   };
   
-  
-  // const handleDuplicateRevision = (workorderId, revisionId, record) => {
-  //   const latestRevision = subRecords[workorderId]?.find(sub => sub.id === revisionId);
-  //   if (!latestRevision) return;
-  
-  //   prefillRevisionDuplicateLocalStorage(record, latestRevision);
-  //   window.location.href = "/estimate";
-  // };
-  
   // Add above handleEdit
-const handleDuplicate = (id) => {
-  setSelectedWorkorderId(id);
-  toast.success('Preparing to duplicate estimate');
-};
+  const handleDuplicate = (id) => {
+    setSelectedWorkorderId(id);
+  };
 
   // Updated Edit function with confirmation toast
   const handleEdit = (id, record) => {
     // Show confirmation toast
     toast((t) => (
-      <div className="flex flex-col p-2">
+      <div className="flex flex-col p-2 bg-white rounded-lg">
         <p className="mb-2 font-medium">Are you sure you want to edit this estimate?</p>
         <div className="flex justify-end gap-2">
           <button
@@ -485,10 +439,7 @@ const handleDuplicate = (id) => {
                 localStorage.setItem("edit_preparedBy", record.preparedBySignature || "");
                 localStorage.setItem("edit_checkedBy", record.checkedBySignature || "");
                 localStorage.setItem("edit_chapter", record.chapterId?.toString() || "");
-                
               }
-              
-              toast.success('Editing estimate...');
               
               // Use React Router's navigate for better SPA navigation
               navigate('/estimate');
@@ -500,7 +451,9 @@ const handleDuplicate = (id) => {
         </div>
       </div>
     ), { duration: 10000 });
-  }; const prefillRevisionDuplicateLocalStorage = (record, latestRevision) => {
+  };
+
+  const prefillRevisionDuplicateLocalStorage = (record, latestRevision) => {
     const getNextRevisionNumber = (current) => {
       try {
         let [major, minor] = current.split('.').map(num => parseInt(num, 10));
@@ -533,7 +486,6 @@ const handleDuplicate = (id) => {
     localStorage.setItem("revisionStage", "started");
   };
   
-  
   const getFilteredRecords = () => {
     const start = new Date(startDate);
     const end = new Date(endDate);
@@ -556,7 +508,6 @@ const handleDuplicate = (id) => {
       .slice(startIndex, endIndex);
   };
   
-
   const totalPages = Math.ceil(getFilteredRecords().length / rowsPerPage);
   
   return (
@@ -567,25 +518,27 @@ const handleDuplicate = (id) => {
       transition={{ duration: 0.4 }}
     >
       {/* Toast Container */}
-      <Toaster
+        <Toaster 
         position="top-right"
         toastOptions={{
-          duration: 3000,
           style: {
-            borderRadius: '8px',
-            background: '#333',
-            color: '#fff',
+            background: 'white',
+            color: 'black',
+            border: '1px solid #e5e7eb',
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
           },
           success: {
-            iconTheme: {
-              primary: '#2fd573',
-              secondary: 'white',
+            style: {
+              background: 'white',
+              color: '#059669',
+              border: '1px solid #10b981',
             },
           },
           error: {
-            iconTheme: {
-              primary: '#ff4b4b',
-              secondary: 'white',
+            style: {
+              background: 'white',
+              color: '#dc2626',
+              border: '1px solid #ef4444',
             },
           },
         }}
@@ -726,13 +679,13 @@ const handleDuplicate = (id) => {
   </button>
 )} */}
 
-<button 
+{/* <button 
   onClick={() => handleEdit(record.id, record)}
   title="Edit"
   className="p-1 hover:bg-green-100 rounded transition-colors text-green-600"
 >
   <Edit size={18} />
-</button>       
+</button>        */}
                         {/* Show active PDF button only for "completed" workorders with pdfLocation */}
                         {record.status?.toLowerCase() === '	Progress' && record.pdfLocation ? (
                           <button 

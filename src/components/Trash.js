@@ -29,8 +29,8 @@ const WorkorderManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
 
   // Auth token would typically come from authentication context
-  const token = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI5MjA5MTYwNjEyIiwiaWF0IjoxNzQ1NDIzNjczLCJleHAiOjE3NDU1MTAwNzN9.4cfviErztGCET2mb3Wg34JnFbm24Y8EPIfHAMN84XIQ";
-  const uid = "92";
+   const jwtToken = localStorage.getItem('authToken');
+const uid = localStorage.getItem('uid');
 
   useEffect(() => {
     fetchMainRecords();
@@ -55,7 +55,7 @@ const WorkorderManagement = () => {
       // In a real application, replace with your API endpoint
       const response = await fetch(`https://24.101.103.87:8082/api/workorders/ByUser/${uid}`, {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${jwtToken}`
         }
       });
       

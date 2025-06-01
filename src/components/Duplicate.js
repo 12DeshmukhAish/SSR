@@ -150,7 +150,7 @@ useEffect(() => {
     setIsLoading(true);
     
     const url = "https://24.101.103.87:8082/api/workorders";
-    const token = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI5MjA5MTYwNjEyIiwiaWF0IjoxNzQ0ODU4MDg2LCJleHAiOjE3NDQ5NDQ0ODZ9.h2HnlVVISzsV5VTaR7pNhBprHN3Xv5fbVsVh6fnnFj0";
+   const jwtToken = localStorage.getItem('authToken');
     
     if (!token) {
       alert("Authentication failed! Token not found.");

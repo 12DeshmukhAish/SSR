@@ -11,41 +11,24 @@ import { Link } from 'react-router-dom';
 
 const LoginPage = () => {
   const navigate = useNavigate();
+   const currentYear = new Date().getFullYear();
   
   // State management
   const [loginStep, setLoginStep] = useState('initial'); // initial, email, email-password, mobile-password
   const [mobileNumber, setMobileNumber] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [loginMethod, setLoginMethod] = useState(''); // 'email' or 'mobile'
-  const [userName, setUserName] = useState(''); // Store the validated username
 
   // API URLs
-  const API_BASE_URL = 'http://24.101.103.87:8082/api/auth';
-  const VALIDATE_USER_URL = `${API_BASE_URL}/isValidUser`;
+  const API_BASE_URL = 'https://24.101.103.87:8082/api/auth';
   const SIGNIN_URL = `${API_BASE_URL}/signin`;
 
-  // Check if user exists
-  const validateUser = async (username) => {
-    try {
-      const response = await axios.get(`${VALIDATE_USER_URL}?userName=${username}`);
-      return response.data;
-    } catch (error) {
-      if (error.response && error.response.status === 400) {
-        return { isValid: false };
-      }
-      console.error('Error validating user:', error);
-      throw error;
-    }
-  };
-
   // Handle continue with mobile
-  const handleMobileContinue = async (e) => {
+  const handleMobileContinue = (e) => {
     e.preventDefault();
     if (!mobileNumber.trim() || !/^[0-9]{10}$/.test(mobileNumber)) {
       setError('Please enter a valid 10-digit mobile number');
@@ -53,31 +36,12 @@ const LoginPage = () => {
       return;
     }
 
-    setLoading(true);
+    setLoginMethod('mobile');
     setError('');
-
-    try {
-      // Validate mobile number with API
-      const result = await validateUser(mobileNumber);
-      
-      if (result && result.isValid) {
-        setLoginMethod('mobile');
-        setUserName(mobileNumber);
-        toast.success('Mobile number validated');
-        setLoginStep('mobile-password');
-      } else {
-        toast.error('Mobile number not registered');
-        setError('Mobile number not registered. Please sign up first.');
-      }
-    } catch (error) {
-      toast.error('Error validating mobile number');
-      setError('Error validating mobile number. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+    setLoginStep('mobile-password');
   };
 
-  const handleEmailContinue = async (e) => {
+  const handleEmailContinue = (e) => {
     e.preventDefault();
     if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setError('Please enter a valid email address');
@@ -85,28 +49,9 @@ const LoginPage = () => {
       return;
     }
 
-    setLoading(true);
+    setLoginMethod('email');
     setError('');
-
-    try {
-      // Validate email with API
-      const result = await validateUser(email);
-      
-      if (result && result.isValid) {
-        setLoginMethod('email');
-        setUserName(email);
-        toast.success('Email verified successfully.');
-        setLoginStep('email-password');
-      } else {
-        toast.error('Email not registered');
-        setError('Email not registered. Please sign up first.');
-      }
-    } catch (error) {
-      toast.error('Error validating email');
-      setError('Error validating email. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+    setLoginStep('email-password');
   };
 
   const handlePasswordSubmit = async (e) => {
@@ -117,48 +62,140 @@ const LoginPage = () => {
       return;
     }
     
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
-      toast.error('Passwords do not match');
-      return;
-    }
-    
     setLoading(true);
     setError('');
 
     try {
       // Create login payload
       const payload = {
-        userName: userName,
+        userName: loginMethod === 'email' ? email : mobileNumber,
         password: password
       };
 
-      // Call sign-in API
-      const response = await axios.post(SIGNIN_URL, payload);
+      console.log('Login payload:', payload); // Debug log
+
+      // Call sign-in API with proper headers
+      const response = await axios.post(SIGNIN_URL, payload, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        timeout: 10000 // 10 second timeout
+      });
+
+      console.log('API Response:', response.data); // Debug log
       
-      if (response.data && response.data.token) {
-        // Store token in localStorage for future authenticated requests
-        localStorage.setItem('authToken', response.data.token);
+      // Handle different response scenarios
+      if (response.status >= 200 && response.status < 300) {
+        const responseData = response.data;
         
-        toast.success('Login successful! Redirecting...', {
-          position: "top-right",
-          autoClose: 2000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-        });
-        
-        setTimeout(() => {
-          navigate('/mywork');
-        }, 2000);
+        // Check for various possible token fields
+        const token = responseData.token || 
+                     responseData.accessToken || 
+                     responseData.authToken || 
+                     responseData.access_token ||
+                     responseData.jwt;
+
+        if (token) {
+          // Store token in localStorage for future authenticated requests
+          localStorage.setItem('authToken', token);
+          
+          // Store user data if available
+          if (responseData.user) {
+            localStorage.setItem('userData', JSON.stringify(responseData.user));
+          }
+          
+          toast.success('Login successful! Redirecting...', {
+            position: "top-right",
+            autoClose: 2000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true,
+          });
+          
+          setTimeout(() => {
+            navigate('/mywork');
+          }, 2000);
+        } else if (responseData.success === true || responseData.status === 'success') {
+          // Handle successful login without explicit token
+          toast.success('Login successful! Redirecting...', {
+            position: "top-right",
+            autoClose: 2000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true,
+          });
+          
+          setTimeout(() => {
+            navigate('/mywork');
+          }, 2000);
+        } else {
+          // Handle cases where login might be successful but structure is different
+          const errorMessage = responseData.message || 
+                              responseData.error || 
+                              'Login successful but unexpected response format';
+          
+          if (responseData.message && responseData.message.toLowerCase().includes('success')) {
+            toast.success('Login successful! Redirecting...', {
+              position: "top-right",
+              autoClose: 2000,
+            });
+            setTimeout(() => {
+              navigate('/mywork');
+            }, 2000);
+          } else {
+            setError(errorMessage);
+            toast.error(errorMessage);
+          }
+        }
       } else {
-        throw new Error('Invalid response from server');
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
     } catch (error) {
       console.error('Login error:', error);
-      toast.error('Login failed. Please check your credentials.');
-      setError(error.response?.data?.message || 'Login failed. Please check your credentials.');
+      
+      let errorMessage = 'Login failed. Please try again.';
+      
+      if (error.response) {
+        // Server responded with error status
+        const statusCode = error.response.status;
+        const responseData = error.response.data;
+        
+        switch (statusCode) {
+          case 400:
+            errorMessage = responseData?.message || 'Invalid request. Please check your input.';
+            break;
+          case 401:
+            errorMessage = responseData?.message || 'Invalid credentials. Please check your username and password.';
+            break;
+          case 403:
+            errorMessage = responseData?.message || 'Access forbidden. Please contact support.';
+            break;
+          case 404:
+            errorMessage = 'Login service not found. Please try again later.';
+            break;
+          case 500:
+            errorMessage = 'Server error. Please try again later.';
+            break;
+          default:
+            errorMessage = responseData?.message || `Server error (${statusCode}). Please try again.`;
+        }
+        
+        console.log('Server error response:', responseData);
+      } else if (error.request) {
+        // Network error
+        errorMessage = 'Network error. Please check your internet connection.';
+      } else if (error.code === 'ECONNABORTED') {
+        // Timeout error
+        errorMessage = 'Request timeout. Please try again.';
+      } else {
+        errorMessage = error.message || 'An unexpected error occurred.';
+      }
+      
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -294,15 +331,7 @@ const LoginPage = () => {
           whileHover="hover"
           whileTap="tap"
         >
-          {loading ? (
-            <span className="flex items-center justify-center">
-              <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              Processing...
-            </span>
-          ) : 'Continue'}
+          Continue
         </motion.button>
       </form>
 
@@ -421,15 +450,7 @@ const LoginPage = () => {
           whileHover="hover"
           whileTap="tap"
         >
-          {loading ? (
-            <span className="flex items-center justify-center">
-              <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              Processing...
-            </span>
-          ) : 'Continue'}
+          Continue
         </motion.button>
       </form>
     </motion.div>
@@ -473,7 +494,7 @@ const LoginPage = () => {
         </motion.div>
         
         {/* Password Input */}
-        <motion.div variants={itemVariants} className="mb-4">
+        <motion.div variants={itemVariants} className="mb-6">
           <label htmlFor="password" className="block text-sm font-medium text-gray-600 mb-2">
             Password
           </label>
@@ -496,30 +517,6 @@ const LoginPage = () => {
           </div>
         </motion.div>
 
-        {/* Confirm Password Input */}
-        <motion.div variants={itemVariants} className="mb-6">
-          <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-600 mb-2">
-            Confirm Password
-          </label>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <FaLock className="text-gray-400" />
-            </div>
-            <motion.input
-              id="confirmPassword"
-              type={showConfirmPassword ? "text" : "password"}
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full pl-10 pr-10 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all hover:border-blue-200"
-              placeholder="Confirm your password"
-              whileFocus={{ scale: 1.01, borderColor: "#3b82f6" }}
-            />
-            <div className="absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
-              {showConfirmPassword ? <FaEyeSlash className="text-gray-400" /> : <FaEye className="text-gray-400" />}
-            </div>
-          </div>
-        </motion.div>
-
         {error && (
           <motion.div 
             className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm mb-4"
@@ -533,7 +530,7 @@ const LoginPage = () => {
         
         <motion.div className="text-right mb-4">
           <Link
-            to="/forgot-password"
+            to="/forgotpwd"
             className="text-blue-500 hover:text-blue-700 font-medium transition-all"
           >
             Forgot Password?
@@ -561,7 +558,21 @@ const LoginPage = () => {
       </form>
     </motion.div>
   );
+
   return (
+      <div>
+     <header className="w-full bg-white shadow-sm border-b border-gray-100">
+  <div className="max-w-7xl mx-auto px-6 py-4">
+    <div className="flex items-center">
+      <img 
+        src="/logo.png" 
+        alt="myBOQ Logo" 
+        className="h-10 w-auto mr-3"
+      />
+      <span className="text-2xl font-bold text-gray-800">myBOQ</span>
+    </div>
+  </div>
+</header>
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50 p-6">
       {/* Toast Container */}
       <ToastContainer
@@ -595,7 +606,7 @@ const LoginPage = () => {
               className="text-4xl font-bold text-white mb-6"
               variants={itemVariants}
             >
-              Welcome Back
+              Welcome Back To myBOQ
             </motion.h1>
             <motion.div
               variants={floatVariants}
@@ -639,6 +650,14 @@ const LoginPage = () => {
           {loginStep === 'mobile-password' && renderPasswordStep()}
         </div>
       </motion.div>
+    </div>
+        <footer className="w-full bg-gray-100 border-t border-gray-200">
+      <div className="max-w-7xl mx-auto px-6 py-4">
+        <div className="text-center text-gray-600 text-sm">
+          © {currentYear} SiliconMount Tech Services Pvt. Ltd. All rights reserved.
+        </div>
+      </div>
+    </footer>
     </div>
   );
 };

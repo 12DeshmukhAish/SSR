@@ -97,7 +97,7 @@ const Header = () => {
         <div className="flex items-center">
         <div className="bg-gray-100 px-3 py-1 rounded-md flex items-center gap-2">
   <FaWallet className="w-6 h-6 text-gray-800" />
-  <span className="font-medium">₹11,225</span>
+  {/* <span className="font-medium">₹11,225</span> */}
 </div>
           <div className="mr-2">
             <div className="relative">

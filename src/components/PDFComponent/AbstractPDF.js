@@ -211,13 +211,13 @@ export const AbstractPDF = ({ workName, workOrderId, items, gstRate = 18 }) => {
       </View>
       
       {/* Date and Total Cost */}
-      <View style={styles.dateAndTotal}>
+      {/* <View style={styles.dateAndTotal}>
         <Text>Date: {getCurrentDate()}</Text>
         <Text>Total Cost: Rs. {formatCurrency(grandTotal)}</Text>
-      </View>
+      </View> */}
       
       {/* Abstract Title */}
-      <Text style={styles.abstractTitle}>ABSTRACT OF COST</Text>
+      <Text style={styles.abstractTitle}>ABSTRACT </Text>
 
       {/* Table */}
       <View style={styles.table}>
@@ -291,10 +291,10 @@ export const AbstractPDF = ({ workName, workOrderId, items, gstRate = 18 }) => {
           <Text style={styles.summaryValue}>{formatCurrency(subtotal)}</Text>
         </View>
         
-        <View style={styles.summaryRow}>
+        {/* <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Subtotal:</Text>
           <Text style={styles.summaryValue}>{formatCurrency(subtotal)}</Text>
-        </View>
+        </View> */}
         
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>GST ({gstRate}%):</Text>

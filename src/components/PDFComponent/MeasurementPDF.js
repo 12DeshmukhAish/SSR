@@ -63,15 +63,14 @@ const styles = StyleSheet.create({
   lastTableCol: {
     padding: 3,
   },
-  srNoCol: { width: '5%' },
-  itemNoCol: { width: '8%' },
-  descriptionCol: { width: '31%' },
+  srNoCol: { width: '8%' },
+  itemNoCol: { width: '10%' },
+  descriptionCol: { width: '40%' },
   noCol: { width: '10%' },
-  lCol: { width: '7%' },
-  bwCol: { width: '7%' },
-  dhCol: { width: '7%' },
-  qtyCol: { width: '10%' },
-  floorCol: { width: '15%' },
+  lCol: { width: '8%' },
+  bwCol: { width: '8%' },
+  dhCol: { width: '8%' },
+  qtyCol: { width: '8%' },
   emptyCol: {
     padding: 3,
   },
@@ -126,10 +125,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: 'bold',
   },
-  floorLiftText: {
-    textAlign: 'center',
-    fontSize: 9,
-  },
   spacerRow: {
     height: 10,
     borderTopWidth: 0.25,
@@ -154,16 +149,23 @@ const calculateTotalQuantity = (measurements) => {
   return measurements.reduce((total, m) => total + (parseFloat(m.quantity) || 0), 0).toFixed(2);
 };
 
-// Group measurements by floor/lift
+// Group measurements by floor/lift (excluding empty/null values)
 const groupMeasurementsByFloor = (measurements) => {
   const groups = {};
   
   if (!measurements || measurements.length === 0) return groups;
   
   measurements.forEach(m => {
-    const key = m.floorLiftRise || 'No Floor/Lift Specified';
-    if (!groups[key]) groups[key] = [];
-    groups[key].push(m);
+    const floorValue = m.floorLiftRise;
+    // Only group if floor/lift has a meaningful value
+    if (floorValue && floorValue.trim() !== '') {
+      if (!groups[floorValue]) groups[floorValue] = [];
+      groups[floorValue].push(m);
+    } else {
+      // For measurements without floor/lift, add them to a general group
+      if (!groups['general']) groups['general'] = [];
+      groups['general'].push(m);
+    }
   });
   
   return groups;
@@ -172,6 +174,11 @@ const groupMeasurementsByFloor = (measurements) => {
 // Calculate subtotal for a group of measurements
 const calculateGroupSubtotal = (measurements) => {
   return measurements.reduce((total, m) => total + (parseFloat(m.quantity) || 0), 0).toFixed(2);
+};
+
+// Helper function to display value or dash
+const displayValue = (value) => {
+  return value && value.toString().trim() !== '' ? value : '-';
 };
 
 // Main Measurement PDF Document Component
@@ -208,11 +215,8 @@ export const MeasurementPDF = ({ workOrderId, nameOfWork, items }) => (
         <View style={[styles.tableColHeader, styles.dhCol]}>
           <Text>D/H</Text>
         </View>
-        <View style={[styles.tableColHeader, styles.qtyCol]}>
+        <View style={[styles.tableColHeader, styles.qtyCol, styles.lastTableCol]}>
           <Text>Quantity</Text>
-        </View>
-        <View style={[styles.tableColHeader, styles.floorCol, styles.lastTableCol]}>
-          <Text>Floor Rise/Lift</Text>
         </View>
       </View>
 
@@ -229,28 +233,25 @@ export const MeasurementPDF = ({ workOrderId, nameOfWork, items }) => (
                 <Text>{idx + 1}</Text>
               </View>
               <View style={[styles.tableCol, styles.itemNoCol, styles.textAlign]}>
-                <Text>{item.itemNo}</Text>
+                <Text>{displayValue(item.itemNo)}</Text>
               </View>
               <View style={[styles.tableCol, styles.descriptionCol, styles.descriptionText]}>
-                <Text>{item.descriptionOfItem} {item.unit ? `(${item.unit})` : ''}</Text>
+                <Text>{displayValue(item.descriptionOfItem)} {item.unit ? `(${item.unit})` : ''}</Text>
               </View>
               <View style={[styles.tableCol, styles.noCol]}>
-                <Text></Text>
+                <Text>-</Text>
               </View>
               <View style={[styles.tableCol, styles.lCol]}>
-                <Text></Text>
+                <Text>-</Text>
               </View>
               <View style={[styles.tableCol, styles.bwCol]}>
-                <Text></Text>
+                <Text>-</Text>
               </View>
               <View style={[styles.tableCol, styles.dhCol]}>
-                <Text></Text>
+                <Text>-</Text>
               </View>
-              <View style={[styles.tableCol, styles.qtyCol]}>
-                <Text></Text>
-              </View>
-              <View style={[styles.tableCol, styles.floorCol, styles.floorLiftText, styles.lastTableCol]}>
-                <Text>{item.floorLiftRise || ''}</Text>
+              <View style={[styles.tableCol, styles.qtyCol, styles.lastTableCol]}>
+                <Text>-</Text>
               </View>
             </View>
             
@@ -261,21 +262,23 @@ export const MeasurementPDF = ({ workOrderId, nameOfWork, items }) => (
               
               return (
                 <React.Fragment key={`floor-${floorIdx}`}>
-                  {/* Floor Group Heading */}
-                  <View style={[styles.tableRow, styles.groupHeadingRow]} wrap={false}>
-                    <View style={[styles.tableCol, styles.srNoCol]}>
-                      <Text></Text>
+                  {/* Floor Group Heading - only show if it's not the general group or has a meaningful floor value */}
+                  {floorKey !== 'general' && (
+                    <View style={[styles.tableRow, styles.groupHeadingRow]} wrap={false}>
+                      <View style={[styles.tableCol, styles.srNoCol]}>
+                        <Text></Text>
+                      </View>
+                      <View style={[styles.tableCol, styles.itemNoCol]}>
+                        <Text></Text>
+                      </View>
+                      <View style={[styles.tableCol, { width: '66%' }, styles.descriptionText]}>
+                        <Text style={{ fontWeight: 'bold' }}>{floorKey}</Text>
+                      </View>
+                      <View style={[styles.tableCol, styles.qtyCol, styles.lastTableCol]}>
+                        <Text></Text>
+                      </View>
                     </View>
-                    <View style={[styles.tableCol, styles.itemNoCol]}>
-                      <Text></Text>
-                    </View>
-                    <View style={[styles.tableCol, { width: '77%' }, styles.descriptionText]}>
-                      <Text style={{ fontWeight: 'bold' }}>{floorKey}</Text>
-                    </View>
-                    <View style={[styles.tableCol, styles.floorCol, styles.lastTableCol]}>
-                      <Text></Text>
-                    </View>
-                  </View>
+                  )}
                   
                   {/* Measurements within the floor */}
                   {floorMeasurements.map((measurement, mIdx) => (
@@ -287,50 +290,43 @@ export const MeasurementPDF = ({ workOrderId, nameOfWork, items }) => (
                         <Text></Text>
                       </View>
                       <View style={[styles.tableCol, styles.descriptionCol, styles.descriptionText]}>
-                        <Text>{measurement.description || ''}</Text>
+                        <Text>{displayValue(measurement.description)}</Text>
                       </View>
                       <View style={[styles.tableCol, styles.noCol, styles.centerAlign]}>
-                        <Text>{measurement.number || ''}</Text>
+                        <Text>{displayValue(measurement.number)}</Text>
                       </View>
                       <View style={[styles.tableCol, styles.lCol, styles.centerAlign]}>
-                        <Text>{measurement.length || ''}</Text>
+                        <Text>{displayValue(measurement.length)}</Text>
                       </View>
                       <View style={[styles.tableCol, styles.bwCol, styles.centerAlign]}>
-                        <Text>{measurement.breadthWidth || ''}</Text>
+                        <Text>{displayValue(measurement.breadthWidth)}</Text>
                       </View>
                       <View style={[styles.tableCol, styles.dhCol, styles.centerAlign]}>
-                        <Text>{measurement.depthHeight || ''}</Text>
+                        <Text>{displayValue(measurement.depthHeight)}</Text>
                       </View>
-                      <View style={[styles.tableCol, styles.qtyCol, styles.centerAlign]}>
+                      <View style={[styles.tableCol, styles.qtyCol, styles.centerAlign, styles.lastTableCol]}>
                         <Text>{(parseFloat(measurement.quantity) || 0).toFixed(2)}</Text>
-                      </View>
-                      <View style={[styles.tableCol, styles.floorCol, styles.lastTableCol]}>
-                        <Text></Text>
                       </View>
                     </View>
                   ))}
                   
-                  {/* Floor Subtotal Row */}
-                  <View style={[styles.tableRow, styles.subTotalRow]} wrap={false}>
-                    <View style={[styles.tableCol, styles.srNoCol]}>
-                      <Text></Text>
+                  {/* Floor Subtotal Row - only show if it's not the general group */}
+                  {floorKey !== 'general' && (
+                    <View style={[styles.tableRow, styles.subTotalRow]} wrap={false}>
+                      <View style={[styles.tableCol, styles.srNoCol]}>
+                        <Text></Text>
+                      </View>
+                      <View style={[styles.tableCol, styles.itemNoCol]}>
+                        <Text></Text>
+                      </View>
+                      <View style={[styles.tableCol, { width: '58%' }, styles.rightAlign]}>
+                        <Text>Subtotal for {floorKey}:</Text>
+                      </View>
+                      <View style={[styles.tableCol, styles.qtyCol, styles.centerAlign, styles.lastTableCol]}>
+                        <Text>{groupSubtotal}</Text>
+                      </View>
                     </View>
-                    <View style={[styles.tableCol, styles.itemNoCol]}>
-                      <Text></Text>
-                    </View>
-                    <View style={[styles.tableCol, { width: '49%' }, styles.rightAlign]}>
-                      <Text>Subtotal for {floorKey}:</Text>
-                    </View>
-                    <View style={[styles.tableCol, { width: '21%' }]}>
-                      <Text></Text>
-                    </View>
-                    <View style={[styles.tableCol, styles.qtyCol, styles.centerAlign]}>
-                      <Text>{groupSubtotal}</Text>
-                    </View>
-                    <View style={[styles.tableCol, styles.floorCol, styles.lastTableCol]}>
-                      <Text></Text>
-                    </View>
-                  </View>
+                  )}
                 </React.Fragment>
               );
             })}
@@ -343,17 +339,11 @@ export const MeasurementPDF = ({ workOrderId, nameOfWork, items }) => (
               <View style={[styles.tableCol, styles.itemNoCol]}>
                 <Text></Text>
               </View>
-              <View style={[styles.tableCol, { width: '49%' }, styles.netQuantityText]}>
+              <View style={[styles.tableCol, { width: '58%' }, styles.netQuantityText]}>
                 <Text>Net Quantity:</Text>
               </View>
-              <View style={[styles.tableCol, { width: '21%' }]}>
-                <Text></Text>
-              </View>
-              <View style={[styles.tableCol, styles.qtyCol, styles.netQuantityValue]}>
-                <Text>{calculateTotalQuantity(item.measurements)}</Text>
-              </View>
-              <View style={[styles.tableCol, styles.floorCol, styles.netQuantityUnit, styles.lastTableCol]}>
-                <Text>{item.unit || ''}</Text>
+              <View style={[styles.tableCol, styles.qtyCol, styles.netQuantityValue, styles.lastTableCol]}>
+                <Text>{calculateTotalQuantity(item.measurements)} {item.unit || ''}</Text>
               </View>
             </View>
             

@@ -637,21 +637,8 @@ const ConstructionEstimateComponent = () => {
         </table>
       </div>
 
-      {/* Save/Submit buttons */}
-      <div className="flex justify-end gap-4 mt-6">
-        <button
-          onClick={generatePDF}
-          className="bg-purple-500 hover:bg-purple-600 text-white px-6 py-2 rounded flex items-center gap-2"
-        >
-          <Download size={16} /> Download PDF
-        </button>
-        <button
-          onClick={handleSaveEstimate}
-          className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded flex items-center gap-2"
-        >
-          <Save size={16} /> Save Estimate
-        </button>
-      </div>
+     
+     
     </div>
   );
 };

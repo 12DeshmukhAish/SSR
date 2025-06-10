@@ -23,9 +23,92 @@ const MyWork = () => {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [isLoading, setIsLoading] = useState(false);
   
-  // Get token from localStorage instead of hardcoded
-  const token = localStorage.getItem('authToken');
-  const uid = localStorage.getItem('Id') || 92;
+
+useEffect(() => {
+  // Check authentication status on component mount
+  if (!checkAuthAndRedirect()) {
+    return; // Don't continue if not authenticated
+  }
+  
+  // Log current auth status for debugging
+  const { token, uid } = getUserData();
+  console.log('Auth Status:', { 
+    hasToken: !!token, 
+    hasUid: !!uid,
+    token: token ? `${token.substring(0, 10)}...` : 'None',
+    uid: uid 
+  });
+  
+}, []); 
+useEffect(() => {
+  const { token, uid } = getUserData();
+  
+  if (token && uid) {
+    fetchData();
+  } else if (!checkAuthAndRedirect()) {
+    return;
+  }
+  
+  const updated = localStorage.getItem("estimateUpdated");
+  if (updated === "true") {
+    localStorage.removeItem("estimateUpdated");
+    fetchData();
+  }
+}, []); 
+
+const getUserData = () => {
+  try {
+    // Try to get the complete user object first (this is what we're now storing)
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      const userData = JSON.parse(storedUser);
+      return {
+        token: userData.jwt || userData.token,
+        uid: userData.id?.toString() || userData.uid?.toString()
+      };
+    }
+    
+    // Fallback to individual items if user object doesn't exist
+    const token = localStorage.getItem('jwt') || 
+                  localStorage.getItem('authToken') || 
+                  localStorage.getItem('token');
+    
+    const uid = localStorage.getItem('Id') || 
+                localStorage.getItem('id') || 
+                localStorage.getItem('uid');
+    
+    return { 
+      token: token, 
+      uid: uid?.toString() 
+    };
+  } catch (error) {
+    console.error('Error getting user data:', error);
+    
+    // Last resort fallback
+    return {
+      token: localStorage.getItem('authToken') || localStorage.getItem('jwt'),
+      uid: localStorage.getItem('Id') || localStorage.getItem('id')
+    };
+  }
+};
+
+// Add this function to check if user is properly authenticated
+const checkAuthAndRedirect = () => {
+  const { token, uid } = getUserData();
+  
+  if (!token || !uid) {
+    toast.error('Authentication required. Please login again.');
+    // Clear any incomplete auth data
+    localStorage.clear();
+    // Redirect to login
+    navigate('/signin');
+    return false;
+  }
+  
+  return true;
+};
+
+  const { token, uid } = getUserData();
 
   const isEditMode = localStorage.getItem("editMode") === "true";
   const isDuplicateRevision = localStorage.getItem("duplicateRevision") === "true";
@@ -44,8 +127,8 @@ const MyWork = () => {
           workorderId: parseInt(localStorage.getItem("recordId")),
           reviseNumber: localStorage.getItem("reviseno") || "1.1",
           createdDate: new Date().toISOString(),
-          createdBy: parseInt(localStorage.getItem("Id") || "92"),
-          updatedBy: parseInt(localStorage.getItem("Id") || "92"),
+          createdBy: parseInt(uid),
+          updatedBy: parseInt(uid),
           updatedDate: new Date().toISOString(),
           currentFlag: true,
           deletedFlag: "no",
@@ -79,22 +162,33 @@ const MyWork = () => {
     };
 
     createDuplicateRevision();
-  }, [token]);
+  }, [token, uid]);
 
   useEffect(() => {
-    fetchData();
+    if (token && uid) {
+      fetchData();
+    } else {
+      toast.error('Authentication required. Please login again.');
+      // You might want to redirect to login page here
+    }
+    
     const updated = localStorage.getItem("estimateUpdated");
     if (updated === "true") {
       localStorage.removeItem("estimateUpdated");
       fetchData();
     }
-  }, []);
+  }, [token, uid]);
 
   useEffect(() => {
     applyDateRange();
   }, [dateRange]);
 
   const fetchData = async () => {
+    if (!token || !uid) {
+      toast.error('Authentication required');
+      return;
+    }
+
     setIsLoading(true);
     
     try {
@@ -157,6 +251,11 @@ const MyWork = () => {
   };
   
   const fetchSubRecords = async (workorderId) => {
+    if (!token) {
+      toast.error('Authentication required');
+      return;
+    }
+
     try {
       const response = await fetch(`https://24.101.103.87:8082/api/workorder-revisions/ByWorkorderId/${workorderId}`, {
         headers: {
@@ -194,6 +293,11 @@ const MyWork = () => {
   };
 
   const toggleRow = async (id) => {
+    if (!token) {
+      toast.error('Authentication required');
+      return;
+    }
+
     setExpandedRows(prev => {
       // Toggle the current row only
       const expanded = { ...prev, [id]: !prev[id] };
@@ -220,6 +324,11 @@ const MyWork = () => {
   };
   
   const handleDelete = async (id) => {
+    if (!token) {
+      toast.error('Authentication required');
+      return;
+    }
+
     // Show confirmation toast
     toast(
       (t) => (
@@ -271,6 +380,11 @@ const MyWork = () => {
   };
 
   const handleDeleteRevision = async (mainId, revisionId) => {
+    if (!token) {
+      toast.error('Authentication required');
+      return;
+    }
+
     // Show confirmation toast
     toast((t) => (
       <div className="flex flex-col p-2 bg-white rounded-lg">
@@ -317,6 +431,11 @@ const MyWork = () => {
   };
 
   const fetchRevisions = async (workorderId) => {
+    if (!token) {
+      toast.error('Authentication required');
+      return [];
+    }
+
     try {
       const response = await fetch(
         `https://24.101.103.87:8082/api/workorder-revisions/ByWorkorderId/${workorderId}`,
@@ -343,6 +462,11 @@ const MyWork = () => {
   };
 
   const fetchRevisionById = async (revisionId) => {
+    if (!token) {
+      toast.error('Authentication required');
+      return null;
+    }
+
     try {
       const response = await fetch(`https://24.101.103.87:8082/api/workorder-revisions/${revisionId}`, {
         headers: {
@@ -509,6 +633,23 @@ const MyWork = () => {
   };
   
   const totalPages = Math.ceil(getFilteredRecords().length / rowsPerPage);
+
+  // Show loading or authentication error
+  if (!token || !uid) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <p className="text-red-500 mb-4">Authentication required</p>
+          <button 
+            onClick={() => window.location.href = '/login'} 
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Go to Login
+          </button>
+        </div>
+      </div>
+    );
+  }
   
   return (
     <motion.div

@@ -14,7 +14,7 @@ const LoginPage = () => {
    const currentYear = new Date().getFullYear();
   
   // State management
-  const [loginStep, setLoginStep] = useState('initial'); // initial, email, email-password, mobile-password
+  const [loginStep, setLoginStep] = useState('initial'); // initial, email, email-password, mobile, mobile-password
   const [mobileNumber, setMobileNumber] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -26,6 +26,20 @@ const LoginPage = () => {
   // API URLs
   const API_BASE_URL = 'https://24.101.103.87:8082/api/auth';
   const SIGNIN_URL = `${API_BASE_URL}/signin`;
+
+  // Handle continue with email
+  const handleEmailContinue = (e) => {
+    e.preventDefault();
+    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError('Please enter a valid email address');
+      toast.error('Please enter a valid email address');
+      return;
+    }
+
+    setLoginMethod('email');
+    setError('');
+    setLoginStep('email-password');
+  };
 
   // Handle continue with mobile
   const handleMobileContinue = (e) => {
@@ -39,19 +53,6 @@ const LoginPage = () => {
     setLoginMethod('mobile');
     setError('');
     setLoginStep('mobile-password');
-  };
-
-  const handleEmailContinue = (e) => {
-    e.preventDefault();
-    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError('Please enter a valid email address');
-      toast.error('Please enter a valid email address');
-      return;
-    }
-
-    setLoginMethod('email');
-    setError('');
-    setLoginStep('email-password');
   };
 
   const handlePasswordSubmit = async (e) => {
@@ -86,71 +87,60 @@ const LoginPage = () => {
       console.log('API Response:', response.data); // Debug log
       
       // Handle different response scenarios
-      if (response.status >= 200 && response.status < 300) {
-        const responseData = response.data;
-        
-        // Check for various possible token fields
-        const token = responseData.token || 
-                     responseData.accessToken || 
-                     responseData.authToken || 
-                     responseData.access_token ||
-                     responseData.jwt;
+     
+if (response.status >= 200 && response.status < 300) {
+  const responseData = response.data;
+  
+  // Check for JWT token in the response
+  const token = responseData.jwt || 
+               responseData.token || 
+               responseData.accessToken || 
+               responseData.authToken || 
+               responseData.access_token;
 
-        if (token) {
-          // Store token in localStorage for future authenticated requests
-          localStorage.setItem('authToken', token);
-          
-          // Store user data if available
-          if (responseData.user) {
-            localStorage.setItem('userData', JSON.stringify(responseData.user));
-          }
-          
-          toast.success('Login successful! Redirecting...', {
-            position: "top-right",
-            autoClose: 2000,
-            hideProgressBar: false,
-            closeOnClick: true,
-            pauseOnHover: true,
-            draggable: true,
-          });
-          
-          setTimeout(() => {
-            navigate('/mywork');
-          }, 2000);
-        } else if (responseData.success === true || responseData.status === 'success') {
-          // Handle successful login without explicit token
-          toast.success('Login successful! Redirecting...', {
-            position: "top-right",
-            autoClose: 2000,
-            hideProgressBar: false,
-            closeOnClick: true,
-            pauseOnHover: true,
-            draggable: true,
-          });
-          
-          setTimeout(() => {
-            navigate('/mywork');
-          }, 2000);
-        } else {
-          // Handle cases where login might be successful but structure is different
-          const errorMessage = responseData.message || 
-                              responseData.error || 
-                              'Login successful but unexpected response format';
-          
-          if (responseData.message && responseData.message.toLowerCase().includes('success')) {
-            toast.success('Login successful! Redirecting...', {
-              position: "top-right",
-              autoClose: 2000,
-            });
-            setTimeout(() => {
-              navigate('/mywork');
-            }, 2000);
-          } else {
-            setError(errorMessage);
-            toast.error(errorMessage);
-          }
-        }
-      } else {
+  if (token || responseData.id) {
+    // Store the complete user object (this is what your MyWork page expects)
+    localStorage.setItem('user', JSON.stringify(responseData));
+    
+    // Also store individual items for backward compatibility
+    if (token) {
+      localStorage.setItem('authToken', token);
+      localStorage.setItem('jwt', token);
+    }
+    
+    // Store user ID
+    if (responseData.id) {
+      localStorage.setItem('Id', responseData.id.toString());
+      localStorage.setItem('id', responseData.id.toString());
+    }
+    
+    // Store other user info
+    if (responseData.fullName) {
+      localStorage.setItem('fullName', responseData.fullName);
+    }
+    
+    if (responseData.mobile) {
+      localStorage.setItem('mobile', responseData.mobile);
+    }
+    
+    toast.success('Login successful! Redirecting...', {
+      position: "top-right",
+      autoClose: 2000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+    });
+    
+    setTimeout(() => {
+      navigate('/mywork');
+    }, 2000);
+  } else {
+    // Handle case where we have a successful response but no clear token/id
+    setError('Login response missing required authentication data');
+    toast.error('Login response missing required authentication data');
+  }
+} else {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
     } catch (error) {
@@ -272,7 +262,7 @@ const LoginPage = () => {
     }
   };
 
-  // Render the mobile/initial login step
+  // Render the initial/email login step (now showing email first)
   const renderInitialStep = () => (
     <motion.div 
       variants={containerVariants}
@@ -284,7 +274,126 @@ const LoginPage = () => {
         className="text-3xl font-semibold text-gray-700 text-center mb-6"
         variants={itemVariants}
       >
-        Login with Mobile
+        Login with Email
+      </motion.h2>
+
+      <form onSubmit={handleEmailContinue}>
+        <motion.div variants={itemVariants} className="mb-6">
+          <label htmlFor="email" className="block text-sm font-medium text-gray-600 mb-2">
+            Email Address
+          </label>
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <FaEnvelope className="text-gray-400" />
+            </div>
+            <motion.input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all hover:border-blue-200"
+              placeholder="Enter your email address"
+              whileFocus={{ scale: 1.01, borderColor: "#3b82f6" }}
+            />
+          </div>
+        </motion.div>
+
+        {error && (
+          <motion.div 
+            className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm mb-4"
+            variants={errorVariants}
+            initial="initial"
+            animate="animate"
+          >
+            {error}
+          </motion.div>
+        )}
+
+        <motion.button
+          type="submit"
+          disabled={loading}
+          className="w-full bg-blue-500 text-white py-3 rounded-lg hover:bg-blue-600 transition-all duration-300 font-medium"
+          variants={buttonVariants}
+          whileHover="hover"
+          whileTap="tap"
+        >
+          Continue
+        </motion.button>
+      </form>
+
+      <div className="relative flex py-4 items-center">
+        <div className="flex-grow border-t border-gray-200"></div>
+        <span className="flex-shrink mx-4 text-gray-400">OR</span>
+        <div className="flex-grow border-t border-gray-200"></div>
+      </div>
+
+      <motion.button
+        type="button"
+        onClick={() => setLoginStep('mobile')}
+        className="w-full flex items-center justify-center bg-white border border-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-50 transition-all duration-300 font-medium"
+        variants={buttonVariants}
+        whileHover="hover"
+        whileTap="tap"
+      >
+        <IoIosPhonePortrait className="mr-2" />
+        Continue with Mobile
+      </motion.button>
+
+      <motion.button
+        type="button"
+        onClick={handleGoogleSignIn}
+        className="w-full flex items-center justify-center bg-white border border-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-50 transition-all duration-300 font-medium mt-3"
+        variants={buttonVariants}
+        whileHover="hover"
+        whileTap="tap"
+      >
+       <FcGoogle className="mr-2 text-red-500" />
+        Continue with Google
+      </motion.button>
+
+      <motion.div 
+        className="text-center mt-4"
+        variants={itemVariants}
+      >
+        <p className="text-gray-500">
+          Don't have an account?{' '}
+          <motion.button
+            type="button"
+            onClick={() => navigate('/signup')}
+            className="text-blue-500 hover:text-blue-700 font-semibold transition-all hover:underline"
+            whileHover={{ scale: 1.05 }}
+          >
+            Sign Up
+          </motion.button>
+        </p>
+      </motion.div>
+    </motion.div>
+  );
+
+  // Render the mobile step
+  const renderMobileStep = () => (
+    <motion.div 
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      className="w-full max-w-md space-y-6"
+    >
+      <motion.div className="flex items-center mb-4">
+        <motion.button
+          type="button"
+          onClick={() => setLoginStep('initial')}
+          className="text-blue-500 hover:text-blue-700 font-medium transition-all"
+          whileHover={{ scale: 1.05 }}
+        >
+          ← Back
+        </motion.button>
+      </motion.div>
+      
+      <motion.h2 
+        className="text-3xl font-semibold text-gray-700 text-center mb-6"
+        variants={itemVariants}
+      >
+        Continue with Mobile
       </motion.h2>
 
       <form onSubmit={handleMobileContinue}>
@@ -334,125 +443,6 @@ const LoginPage = () => {
           Continue
         </motion.button>
       </form>
-
-      <div className="relative flex py-4 items-center">
-        <div className="flex-grow border-t border-gray-200"></div>
-        <span className="flex-shrink mx-4 text-gray-400">OR</span>
-        <div className="flex-grow border-t border-gray-200"></div>
-      </div>
-
-      <motion.button
-        type="button"
-        onClick={() => setLoginStep('email')}
-        className="w-full flex items-center justify-center bg-white border border-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-50 transition-all duration-300 font-medium"
-        variants={buttonVariants}
-        whileHover="hover"
-        whileTap="tap"
-      >
-        <FaEnvelope className="mr-2" />
-        Continue with Email
-      </motion.button>
-
-      <motion.button
-        type="button"
-        onClick={handleGoogleSignIn}
-        className="w-full flex items-center justify-center bg-white border border-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-50 transition-all duration-300 font-medium mt-3"
-        variants={buttonVariants}
-        whileHover="hover"
-        whileTap="tap"
-      >
-       <FcGoogle className="mr-2 text-red-500" />
-        Continue with Google
-      </motion.button>
-
-      <motion.div 
-        className="text-center mt-4"
-        variants={itemVariants}
-      >
-        <p className="text-gray-500">
-          Don't have an account?{' '}
-          <motion.button
-            type="button"
-            onClick={() => navigate('/signup')}
-            className="text-blue-500 hover:text-blue-700 font-semibold transition-all hover:underline"
-            whileHover={{ scale: 1.05 }}
-          >
-            Sign Up
-          </motion.button>
-        </p>
-      </motion.div>
-    </motion.div>
-  );
-
-  // Render the email step
-  const renderEmailStep = () => (
-    <motion.div 
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-      className="w-full max-w-md space-y-6"
-    >
-      <motion.div className="flex items-center mb-4">
-        <motion.button
-          type="button"
-          onClick={() => setLoginStep('initial')}
-          className="text-blue-500 hover:text-blue-700 font-medium transition-all"
-          whileHover={{ scale: 1.05 }}
-        >
-          ← Back
-        </motion.button>
-      </motion.div>
-      
-      <motion.h2 
-        className="text-3xl font-semibold text-gray-700 text-center mb-6"
-        variants={itemVariants}
-      >
-        Continue with Email
-      </motion.h2>
-
-      <form onSubmit={handleEmailContinue}>
-        <motion.div variants={itemVariants} className="mb-6">
-          <label htmlFor="email" className="block text-sm font-medium text-gray-600 mb-2">
-            Email Address
-          </label>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <FaEnvelope className="text-gray-400" />
-            </div>
-            <motion.input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all hover:border-blue-200"
-              placeholder="Enter your email address"
-              whileFocus={{ scale: 1.01, borderColor: "#3b82f6" }}
-            />
-          </div>
-        </motion.div>
-
-        {error && (
-          <motion.div 
-            className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm mb-4"
-            variants={errorVariants}
-            initial="initial"
-            animate="animate"
-          >
-            {error}
-          </motion.div>
-        )}
-
-        <motion.button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-blue-500 text-white py-3 rounded-lg hover:bg-blue-600 transition-all duration-300 font-medium"
-          variants={buttonVariants}
-          whileHover="hover"
-          whileTap="tap"
-        >
-          Continue
-        </motion.button>
-      </form>
     </motion.div>
   );
 
@@ -467,7 +457,7 @@ const LoginPage = () => {
       <motion.div className="flex items-center mb-4">
         <motion.button
           type="button"
-          onClick={() => setLoginStep(loginMethod === 'email' ? 'email' : 'initial')}
+          onClick={() => setLoginStep(loginMethod === 'email' ? 'initial' : 'mobile')}
           className="text-blue-500 hover:text-blue-700 font-medium transition-all"
           whileHover={{ scale: 1.05 }}
         >
@@ -645,7 +635,7 @@ const LoginPage = () => {
         {/* Right Side - Login Form with animations */}
         <div className="flex items-center justify-center p-12">
           {loginStep === 'initial' && renderInitialStep()}
-          {loginStep === 'email' && renderEmailStep()}
+          {loginStep === 'mobile' && renderMobileStep()}
           {loginStep === 'email-password' && renderPasswordStep()}
           {loginStep === 'mobile-password' && renderPasswordStep()}
         </div>

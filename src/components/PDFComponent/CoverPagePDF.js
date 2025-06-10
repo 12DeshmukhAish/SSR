@@ -5,7 +5,7 @@ import { Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
 const styles = StyleSheet.create({
   page: {
     padding: 40,
-    fontSize: 12,
+    fontSize: 16, // Increased from 12
     fontFamily: 'Helvetica',
     backgroundColor: '#ffffff',
   },
@@ -49,14 +49,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logo: {
-    maxWidth: 80,
-    maxHeight: 80,
+    maxWidth: 100, // Increased from 80
+    maxHeight: 100, // Increased from 80
     marginBottom: 20,
     objectFit: 'contain',
   },
   // Company section
   companyName: {
-    fontSize: 16,
+    fontSize: 22, // Increased from 16
     fontWeight: 'bold',
     textAlign: 'center',
     textTransform: 'uppercase',
@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
     color: '#000',
   },
   companyAddress: {
-    fontSize: 10,
+    fontSize: 14, // Increased from 10
     textAlign: 'center',
     color: '#000',
     lineHeight: 1.4,
@@ -74,7 +74,7 @@ const styles = StyleSheet.create({
   // Estimate title section
   estimateTitle: {
     marginTop: 50,
-    marginBottom: 60,
+    marginBottom: 30, // Reduced from 60
     borderStyle: 'solid',
     borderWidth: 2,
     borderColor: '#000',
@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
     minWidth: '40%',
   },
   estimateTitleText: {
-    fontSize: 18,
+    fontSize: 24, // Increased from 18
     fontWeight: 'bold',
     textAlign: 'center',
     color: '#2563eb',
@@ -90,19 +90,19 @@ const styles = StyleSheet.create({
   },
   // Work name section
   workNameContainer: {
-    marginBottom: 30,
+    marginBottom: 15, // Reduced from 30
     alignItems: 'center',
   },
   workNameLabel: {
-    fontSize: 16,
+    fontSize: 20, // Increased from 16
     fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 15,
+    marginBottom: 8, // Reduced from 15
     color: '#000',
     letterSpacing: 2,
   },
   workName: {
-    fontSize: 16,
+    fontSize: 20, // Increased from 16
     fontWeight: 'bold',
     textAlign: 'center',
     color: '#dc2626',
@@ -110,23 +110,23 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     lineHeight: 1.3,
     maxWidth: '90%',
-    marginBottom: 20,
+    marginBottom: 8, // Reduced from 20
   },
   clientName: {
-    fontSize: 16,
+    fontSize: 20, // Increased from 16
     fontWeight: 'bold',
     textAlign: 'center',
     color: '#dc2626',
     textTransform: 'uppercase',
     letterSpacing: 1,
-    marginBottom: 40,
+    marginBottom: 8, // Reduced from 40
   },
   // Property details
   propertyDetails: {
-    fontSize: 16,
+    fontSize: 20, // Increased from 16
     textAlign: 'center',
     color: '#000',
-    marginBottom: 50,
+    marginBottom: 30, // Reduced from 50
     lineHeight: 1.4,
   },
   // Cost section
@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   estimateCostText: {
-    fontSize: 16,
+    fontSize: 20, // Increased from 16
     fontWeight: 'bold',
     textAlign: 'center',
     color: '#000',
@@ -201,12 +201,12 @@ export const CoverPagePDF = ({
           
           {/* Company Name */}
           <Text style={styles.companyName}>
-            {companyName || 'ABC CONSTRUCTION COMPANY'}
+            {companyName }
           </Text>
           
           {/* Company Address */}
           <Text style={styles.companyAddress}>
-            {companyAddress || '123 Main Street, City, State - 123456'}
+            {companyAddress }
           </Text>
         </View>
         
@@ -220,11 +220,11 @@ export const CoverPagePDF = ({
         {/* Work Name Section */}
         <View style={styles.workNameContainer}>
           <Text style={styles.workNameLabel}>
-            * NAME OF WORK *
+             NAME OF WORK 
           </Text>
           
           <Text style={styles.workName}>
-            {workName || 'CONSTRUCTION OF RESIDENTIAL BUILDING'}
+            {workName }
           </Text>
           
           <Text style={styles.clientName}>
@@ -232,7 +232,7 @@ export const CoverPagePDF = ({
           </Text>
           
           <Text style={styles.clientName}>
-            {clientName || 'JOHN DOE'}
+            {clientName }
           </Text>
         </View>
 

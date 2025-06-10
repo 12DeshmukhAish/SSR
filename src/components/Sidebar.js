@@ -11,8 +11,8 @@ import { toast } from 'react-toastify';
 const MenuItem = ({ icon: Icon, label, path, isActive, isCollapsed, isDisabled = false, onClick }) => {
   const itemClasses = `
     flex items-center ${isCollapsed ? 'justify-center' : 'gap-3 px-4'} py-3 cursor-pointer
-    ${isActive ? 'text-white bg-blue-600' : 'text-white hover:bg-gray-700'}
-    ${isDisabled ? 'hover:!bg-gray-700 hover:!text-gray-500 hover:!cursor-not-allowed' : ''}
+    ${isActive ? 'text-white bg-blue-600' : 
+      isDisabled ? 'text-gray-500 bg-gray-700 cursor-not-allowed' : 'text-white hover:bg-gray-700'}
     transition-colors duration-200 rounded-md mx-2
   `;
 
@@ -154,21 +154,22 @@ const Sidebar = () => {
             isCollapsed={isCollapsed}
           />
           
-          {/* Credit Section - shows disabled state only on hover */}
-          <div className={`${isCollapsed ? 'mx-2 items-center' : 'mx-2'} mt-4 py-3 rounded-md bg-gray-700 flex flex-col ${isCollapsed ? 'items-center' : 'px-4'} hover:opacity-50 transition-opacity duration-200`}>
+          {/* Credit Section - shows disabled state initially */}
+          <div className={`${isCollapsed ? 'mx-2 items-center' : 'mx-2'} mt-4 py-3 rounded-md bg-gray-700 flex flex-col ${isCollapsed ? 'items-center' : 'px-4'}`}>
             {!isCollapsed ? (
               <>
-                <div className="font-medium text-sm text-gray-300">Available Credit</div>
+                <div className="font-medium text-sm text-gray-400">Available Credit</div>
                 <button 
-                  className="w-full mt-2 bg-blue-500 hover:bg-gray-600 hover:text-gray-400 hover:cursor-not-allowed text-white py-2 px-4 rounded-md transition-colors duration-200 flex items-center justify-center gap-2"
+                  className="w-full mt-2 bg-gray-600 text-gray-400 cursor-not-allowed py-2 px-4 rounded-md transition-colors duration-200 flex items-center justify-center gap-2"
                   onClick={(e) => e.preventDefault()}
                   title="This feature is not available"
+                  disabled
                 >
                   <span>Buy Credit</span>
                 </button>
               </>
             ) : (
-              <FaCreditCard size={24} className="mb-1 text-gray-300 hover:text-gray-500 transition-colors duration-200" />
+              <FaCreditCard size={24} className="mb-1 text-gray-400" title="This feature is not available" />
             )}
           </div>
           

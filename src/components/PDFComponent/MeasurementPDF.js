@@ -8,6 +8,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: 'Helvetica',
     position: 'relative',
+    backgroundColor: '#ffffff',
   },
   border: {
     position: 'absolute',
@@ -38,11 +39,13 @@ const styles = StyleSheet.create({
     borderStyle: 'solid',
     borderWidth: 1,
     borderColor: '#000',
+    backgroundColor: '#ffffff',
   },
   tableRow: {
     flexDirection: 'row',
     borderStyle: 'none',
     marginBottom: 0,
+    backgroundColor: '#ffffff',
   },
   tableHeaderRow: {
     flexDirection: 'row',
@@ -80,12 +83,14 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#000',
     borderTopStyle: 'solid',
+    backgroundColor: '#ffffff',
   },
   totalRow: {
     flexDirection: 'row',
     borderBottomWidth: 0,
     fontWeight: 'bold',
     marginTop: 0,
+    backgroundColor: '#ffffff',
   },
   rightAlign: {
     textAlign: 'right',
@@ -111,6 +116,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginTop: 0,
     paddingTop: 2,
+    backgroundColor: '#ffffff',
   },
   netQuantityText: {
     textAlign: 'right',
@@ -130,6 +136,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 0.25,
     borderTopColor: '#f2f2f2',
     borderTopStyle: 'solid',
+    backgroundColor: '#ffffff',
   },
   groupHeadingRow: {
     backgroundColor: '#f9f9f9',
@@ -140,6 +147,7 @@ const styles = StyleSheet.create({
     borderTopStyle: 'solid',
     borderTopColor: '#cccccc',
     fontWeight: 'bold',
+    backgroundColor: '#ffffff',
   }
 });
 
@@ -176,9 +184,19 @@ const calculateGroupSubtotal = (measurements) => {
   return measurements.reduce((total, m) => total + (parseFloat(m.quantity) || 0), 0).toFixed(2);
 };
 
-// Helper function to display value or dash
-const displayValue = (value) => {
-  return value && value.toString().trim() !== '' ? value : '-';
+// Helper function to display value or empty space (no dash for main item description)
+const displayValue = (value, showDashForEmpty = true, isItemDescription = false) => {
+  if (value && value.toString().trim() !== '') {
+    return value;
+  }
+  
+  // For item description row, don't show dash, just return empty space
+  if (isItemDescription) {
+    return '';
+  }
+  
+  // For measurement values, only show dash if showDashForEmpty is true
+  return showDashForEmpty ? '-' : '';
 };
 
 // Main Measurement PDF Document Component
@@ -233,25 +251,25 @@ export const MeasurementPDF = ({ workOrderId, nameOfWork, items }) => (
                 <Text>{idx + 1}</Text>
               </View>
               <View style={[styles.tableCol, styles.itemNoCol, styles.textAlign]}>
-                <Text>{displayValue(item.itemNo)}</Text>
+                <Text>{displayValue(item.itemNo, false, true)}</Text>
               </View>
               <View style={[styles.tableCol, styles.descriptionCol, styles.descriptionText]}>
-                <Text>{displayValue(item.descriptionOfItem)} {item.unit ? `(${item.unit})` : ''}</Text>
+                <Text>{displayValue(item.descriptionOfItem, false, true)} {item.unit ? `(${item.unit})` : ''}</Text>
               </View>
               <View style={[styles.tableCol, styles.noCol]}>
-                <Text>-</Text>
+                <Text></Text>
               </View>
               <View style={[styles.tableCol, styles.lCol]}>
-                <Text>-</Text>
+                <Text></Text>
               </View>
               <View style={[styles.tableCol, styles.bwCol]}>
-                <Text>-</Text>
+                <Text></Text>
               </View>
               <View style={[styles.tableCol, styles.dhCol]}>
-                <Text>-</Text>
+                <Text></Text>
               </View>
               <View style={[styles.tableCol, styles.qtyCol, styles.lastTableCol]}>
-                <Text>-</Text>
+                <Text></Text>
               </View>
             </View>
             
@@ -290,7 +308,7 @@ export const MeasurementPDF = ({ workOrderId, nameOfWork, items }) => (
                         <Text></Text>
                       </View>
                       <View style={[styles.tableCol, styles.descriptionCol, styles.descriptionText]}>
-                        <Text>{displayValue(measurement.description)}</Text>
+                        <Text>{displayValue(measurement.description, false)}</Text>
                       </View>
                       <View style={[styles.tableCol, styles.noCol, styles.centerAlign]}>
                         <Text>{displayValue(measurement.number)}</Text>

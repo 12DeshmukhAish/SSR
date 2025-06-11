@@ -16,10 +16,10 @@ const StepperPage = ({ currentStep = 1 }) => {
   const steps = [
     { id: 1, name: 'ESTIMATE', path: '/estimate', icon: <BsCheckLg className="w-5 h-5" />, activeIcon: <BsCheckLg className="w-5 h-5" /> },
     { id: 2, name: 'SUB-ESTIMATE', path: '/subestimate', icon: <BsHourglass className="w-5 h-5" />, activeIcon: <BsHourglass className="w-5 h-5 animate-pulse" /> },
-    { id: 3, name: 'LEAD', path: '/lead', icon: <BsArrowRightShort className="w-5 h-5" />, activeIcon: <BsArrowRightShort className="w-5 h-5" /> },
-    { id: 4, name: 'ROYALTY', path: '/royalty', icon: <BsGraphUp className="w-5 h-5" />, activeIcon: <BsGraphUp className="w-5 h-5" /> },
-    { id: 5, name: 'MAT', path: '/mat', icon: <FaStar  className="w-5 h-5" />, activeIcon: <BsStars className="w-5 h-5" /> },
-    { id: 6, name: 'CMT/QTY', path: '/cmt-qty', icon: <FaStar  className="w-5 h-5" />, activeIcon: <BsStars className="w-5 h-5" /> },
+    { id: 3, name: 'LEAD', path: '/lead', icon: <BsArrowRightShort className="w-5 h-5 text-gray-400" />, activeIcon: <BsArrowRightShort className="w-5 h-5 text-gray-400" />, disabled: true },
+    { id: 4, name: 'ROYALTY', path: '/royalty', icon: <BsGraphUp className="w-5 h-5 text-gray-400" />, activeIcon: <BsGraphUp className="w-5 h-5 text-gray-400" />, disabled: true },
+    { id: 5, name: 'MAT', path: '/mat', icon: <FaStar className="w-5 h-5 text-gray-400" />, activeIcon: <BsStars className="w-5 h-5 text-gray-400" />, disabled: true },
+    { id: 6, name: 'CMT/QTY', path: '/cmt-qty', icon: <FaStar className="w-5 h-5 text-gray-400" />, activeIcon: <BsStars className="w-5 h-5 text-gray-400" />, disabled: true },
     { id: 7, name: 'REVIEW', path: '/pdf-preview', icon: <BsPencilSquare className="w-5 h-5" />, activeIcon: <BsPencilSquare className="w-5 h-5" /> }
   ];
 
@@ -29,7 +29,8 @@ const StepperPage = ({ currentStep = 1 }) => {
     return 'pending';
   };
 
-  const getBackgroundColor = (status) => {
+  const getBackgroundColor = (status, disabled) => {
+    if (disabled) return 'bg-gray-200 text-gray-400';
     switch (status) {
       case 'completed': return 'bg-green-500 text-white';
       case 'current': return 'bg-orange-400 text-white';
@@ -38,7 +39,7 @@ const StepperPage = ({ currentStep = 1 }) => {
   };
 
   const handleStepClick = (step) => {
-    if (step.id <= currentStep + 1) {
+    if (!step.disabled && step.id <= currentStep + 1) {
       navigate(step.path);
     }
   };
@@ -47,8 +48,8 @@ const StepperPage = ({ currentStep = 1 }) => {
     <div className="w-full flex flex-row justify-between items-center">
       {steps.map((step, index) => {
         const status = getStepStatus(step.id);
-        const bgColor = getBackgroundColor(status);
-        const isClickable = step.id <= currentStep + 1;
+        const bgColor = getBackgroundColor(status, step.disabled);
+        const isClickable = !step.disabled && step.id <= currentStep + 1;
 
         return (
           <React.Fragment key={step.id}>
@@ -60,7 +61,7 @@ const StepperPage = ({ currentStep = 1 }) => {
                 className={`flex items-center ${bgColor} px-4 py-2 rounded-r-md transition-all duration-300 ${index === 0 ? 'rounded-l-md' : ''}`}
               >
                 <div className="mr-2">
-                  {status === 'current' ? step.activeIcon : step.icon}
+                  {status === 'current' && !step.disabled ? step.activeIcon : step.icon}
                 </div>
                 <span className="font-bold">{step.name}</span>
               </div>
@@ -75,8 +76,9 @@ const StepperPage = ({ currentStep = 1 }) => {
             </div>
 
             {index < steps.length - 1 && (
-              <div className="w-0 h-0 border-y-8 border-y-transparent border-l-8 border-l-current z-10"
-                style={{ color: getBackgroundColor(status).split(' ')[0].replace('bg-', '') }}
+              <div
+                className="w-0 h-0 border-y-8 border-y-transparent border-l-8 border-l-current z-10"
+                style={{ color: bgColor.split(' ')[0].replace('bg-', '') }}
               />
             )}
           </React.Fragment>

@@ -61,6 +61,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     minHeight: 30,
   },
+  summaryRow: {
+    flexDirection: 'row',
+    borderLeft: 1,
+    borderRight: 1,
+    borderBottom: 1,
+    borderColor: '#000',
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    backgroundColor: '#f8f8f8',
+    minHeight: 25,
+  },
+  auxiliaryRow: {
+    flexDirection: 'row',
+    borderLeft: 1,
+    borderRight: 1,
+    borderBottom: 1,
+    borderColor: '#000',
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    backgroundColor: '#f0f0f0',
+    minHeight: 25,
+  },
   // Column widths
   srNoCol: { 
     width: '8%',
@@ -100,6 +122,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingRight: 8,
   },
+  // Summary section column widths
+  summaryLabelCol: {
+    width: '85%',
+    textAlign: 'right',
+    justifyContent: 'center',
+    paddingRight: 8,
+  },
+  summaryAmountCol: {
+    width: '15%',
+    textAlign: 'right',
+    justifyContent: 'center',
+    paddingRight: 8,
+  },
   headerText: {
     fontSize: 11,
     fontWeight: 'bold',
@@ -109,6 +144,13 @@ const styles = StyleSheet.create({
     fontSize: 10,
     lineHeight: 1.3,
   },
+  summaryText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  auxiliaryText: {
+    fontSize: 10,
+  },
   centerText: {
     textAlign: 'center',
   },
@@ -117,36 +159,6 @@ const styles = StyleSheet.create({
   },
   leftText: {
     textAlign: 'left',
-  },
-  // Summary section
-  summarySection: {
-    marginTop: 10,
-    borderTop: 1,
-    borderColor: '#000',
-    paddingTop: 10,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 5,
-    fontSize: 11,
-  },
-  summaryLabel: {
-    fontWeight: 'bold',
-  },
-  summaryValue: {
-    fontWeight: 'bold',
-    textAlign: 'right',
-  },
-  grandTotalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    borderTop: 1,
-    borderColor: '#000',
-    paddingTop: 8,
-    marginTop: 8,
-    fontSize: 12,
-    fontWeight: 'bold',
   },
   footer: {
     position: 'absolute',
@@ -194,10 +206,26 @@ const getCurrentDate = () => {
 };
 
 // Main Abstract PDF Component
-export const AbstractPDF = ({ workName, workOrderId, items, gstRate = 18 }) => {
-  // Calculate totals
-  const subtotal = items.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+export const AbstractPDF = ({ 
+  workName = "Construction Project", 
+  workOrderId, 
+  items = [], 
+  auxiliaryWorks = [], 
+  gstRate = 18 
+}) => {
+  // Calculate main items total
+  const mainItemsTotal = items.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+  
+  // Calculate auxiliary works total
+  const auxiliaryTotal = auxiliaryWorks.reduce((sum, aux) => sum + (parseFloat(aux.amount) || 0), 0);
+  
+  // Calculate subtotal (main items + auxiliary works)
+  const subtotal = mainItemsTotal + auxiliaryTotal;
+  
+  // Calculate GST amount on subtotal
   const gstAmount = (subtotal * gstRate) / 100;
+  
+  // Calculate grand total (subtotal + GST)
   const grandTotal = subtotal + gstAmount;
   
   return (
@@ -211,13 +239,13 @@ export const AbstractPDF = ({ workName, workOrderId, items, gstRate = 18 }) => {
       </View>
       
       {/* Date and Total Cost */}
-      {/* <View style={styles.dateAndTotal}>
+      <View style={styles.dateAndTotal}>
         <Text>Date: {getCurrentDate()}</Text>
-        <Text>Total Cost: Rs. {formatCurrency(grandTotal)}</Text>
-      </View> */}
+        <Text>Grand Total: Rs. {formatCurrency(grandTotal)}</Text>
+      </View>
       
       {/* Abstract Title */}
-      <Text style={styles.abstractTitle}>ABSTRACT </Text>
+      <Text style={styles.abstractTitle}>ABSTRACT</Text>
 
       {/* Table */}
       <View style={styles.table}>
@@ -246,7 +274,7 @@ export const AbstractPDF = ({ workName, workOrderId, items, gstRate = 18 }) => {
           </View>
         </View>
 
-        {/* Table Body */}
+        {/* Main Items */}
         {items.map((item, idx) => (
           <View style={styles.tableRow} key={item.id || idx}>
             <View style={styles.srNoCol}>
@@ -282,28 +310,68 @@ export const AbstractPDF = ({ workName, workOrderId, items, gstRate = 18 }) => {
             </View>
           </View>
         ))}
-      </View>
 
-      {/* Summary Section */}
-      <View style={styles.summarySection}>
+        {/* Main Items Total Row */}
         <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>Total:</Text>
-          <Text style={styles.summaryValue}>{formatCurrency(subtotal)}</Text>
+          <View style={styles.summaryLabelCol}>
+            <Text style={[styles.summaryText, styles.rightText]}>Main Items Total:</Text>
+          </View>
+          <View style={styles.summaryAmountCol}>
+            <Text style={[styles.summaryText, styles.rightText]}>{formatCurrency(mainItemsTotal)}</Text>
+          </View>
         </View>
-        
-        {/* <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>Subtotal:</Text>
-          <Text style={styles.summaryValue}>{formatCurrency(subtotal)}</Text>
-        </View> */}
-        
+
+        {/* Auxiliary Works */}
+        {auxiliaryWorks.map((aux, idx) => {
+          const displayName = aux.description === 'Other' ? aux.customDescription : aux.description;
+          const percentageText = aux.isPercentage ? ` (${aux.percentage}%)` : ' (Fixed Amount)';
+          
+          return (
+            <View style={styles.auxiliaryRow} key={`aux-${idx}`}>
+              <View style={styles.summaryLabelCol}>
+                <Text style={[styles.auxiliaryText, styles.rightText]}>
+                  {displayName}{percentageText}:
+                </Text>
+              </View>
+              <View style={styles.summaryAmountCol}>
+                <Text style={[styles.auxiliaryText, styles.rightText]}>
+                  {formatCurrency(aux.amount || 0)}
+                </Text>
+              </View>
+            </View>
+          );
+        })}
+
+        {/* Subtotal Row */}
         <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>GST ({gstRate}%):</Text>
-          <Text style={styles.summaryValue}>{formatCurrency(gstAmount)}</Text>
+          <View style={styles.summaryLabelCol}>
+            <Text style={[styles.summaryText, styles.rightText]}>Subtotal:</Text>
+          </View>
+          <View style={styles.summaryAmountCol}>
+            <Text style={[styles.summaryText, styles.rightText]}>{formatCurrency(subtotal)}</Text>
+          </View>
         </View>
-        
-        <View style={styles.grandTotalRow}>
-          <Text>Grand Total:</Text>
-          <Text>Rs. {formatCurrency(grandTotal)}</Text>
+
+        {/* GST Row */}
+        <View style={styles.summaryRow}>
+          <View style={styles.summaryLabelCol}>
+            <Text style={[styles.auxiliaryText, styles.rightText]}>GST ({gstRate}%):</Text>
+          </View>
+          <View style={styles.summaryAmountCol}>
+            <Text style={[styles.auxiliaryText, styles.rightText]}>{formatCurrency(gstAmount)}</Text>
+          </View>
+        </View>
+
+        {/* Grand Total Row */}
+        <View style={[styles.summaryRow, { backgroundColor: '#d0d0d0' }]}>
+          <View style={styles.summaryLabelCol}>
+            <Text style={[styles.summaryText, styles.rightText, { fontSize: 12 }]}>Grand Total:</Text>
+          </View>
+          <View style={styles.summaryAmountCol}>
+            <Text style={[styles.summaryText, styles.rightText, { fontSize: 12 }]}>
+              Rs. {formatCurrency(grandTotal)}
+            </Text>
+          </View>
         </View>
       </View>
       
@@ -315,7 +383,7 @@ export const AbstractPDF = ({ workName, workOrderId, items, gstRate = 18 }) => {
       {/* Page Number */}
       <Text 
         style={styles.pageNumber} 
-        render={({ pageNumber, totalPages }) => `${getCurrentDate()}, Page ${pageNumber} of ${totalPages}`} 
+        render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`} 
         fixed 
       />
     </Page>

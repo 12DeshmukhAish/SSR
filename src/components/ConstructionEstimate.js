@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, AlertTriangle, RefreshCw, Download, Check, X } from 'lucide-react';
+import { Save, AlertTriangle, RefreshCw, Download, Check, X, Eye } from 'lucide-react';
 
 const ConstructionEstimateComponent = () => {
   const [items, setItems] = useState([]);
@@ -9,6 +9,7 @@ const ConstructionEstimateComponent = () => {
   const [error, setError] = useState(null);
   const [isOfflineMode, setIsOfflineMode] = useState(false);
   const [gstPercentage, setGstPercentage] = useState(0);
+  const [showPreview, setShowPreview] = useState(false);
 
   // Predefined options for auxiliary works dropdown
   const auxiliaryOptions = [
@@ -19,8 +20,8 @@ const ConstructionEstimateComponent = () => {
     'Other'
   ];
 
-  // JWT Token
-   const jwtToken = localStorage.getItem('authToken');
+  // JWT Token (Note: In production, avoid localStorage for tokens)
+  const jwtToken = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
   
   // API base URL
   const API_BASE_URL = "https://24.101.103.87:8082/api";
@@ -28,7 +29,7 @@ const ConstructionEstimateComponent = () => {
   // Function to load abstract data
   const loadAbstractData = () => {
     try {
-      const abstractItems = localStorage.getItem("abstractItems");
+      const abstractItems = typeof window !== 'undefined' ? localStorage.getItem("abstractItems") : null;
       
       if (!abstractItems) {
         console.log("No abstract data found in localStorage");
@@ -165,6 +166,29 @@ const ConstructionEstimateComponent = () => {
     const newAuxWorks = [...auxiliaryWorks];
     newAuxWorks[index].percentage = newPercentage;
     newAuxWorks[index].amount = totalCost * (newPercentage / 100);
+    newAuxWorks[index].isPercentage = true;
+    setAuxiliaryWorks(newAuxWorks);
+  };
+
+  // Handle auxiliary fixed amount change
+  const handleAuxiliaryAmountChange = (index, value) => {
+    const newAmount = parseFloat(value) || 0;
+    const newAuxWorks = [...auxiliaryWorks];
+    newAuxWorks[index].amount = newAmount;
+    newAuxWorks[index].percentage = 0;
+    newAuxWorks[index].isPercentage = false;
+    setAuxiliaryWorks(newAuxWorks);
+  };
+
+  // Handle auxiliary type change (percentage vs fixed amount)
+  const handleAuxiliaryTypeChange = (index, isPercentage) => {
+    const newAuxWorks = [...auxiliaryWorks];
+    newAuxWorks[index].isPercentage = isPercentage;
+    if (isPercentage) {
+      newAuxWorks[index].amount = totalCost * (newAuxWorks[index].percentage / 100);
+    } else {
+      newAuxWorks[index].percentage = 0;
+    }
     setAuxiliaryWorks(newAuxWorks);
   };
   
@@ -172,7 +196,13 @@ const ConstructionEstimateComponent = () => {
   const addAuxiliaryWork = () => {
     setAuxiliaryWorks([
       ...auxiliaryWorks,
-      { description: auxiliaryOptions[0], customDescription: '', percentage: 0, amount: 0 }
+      { 
+        description: auxiliaryOptions[0], 
+        customDescription: '', 
+        percentage: 0, 
+        amount: 0, 
+        isPercentage: true 
+      }
     ]);
   };
   
@@ -180,25 +210,17 @@ const ConstructionEstimateComponent = () => {
   const removeAuxiliaryWork = (index) => {
     const newAuxWorks = auxiliaryWorks.filter((_, i) => i !== index);
     setAuxiliaryWorks(newAuxWorks);
-    
-    // Recalculate amounts for remaining auxiliary works
-    const updatedAuxWorks = newAuxWorks.map(aux => ({
-      ...aux,
-      amount: totalCost * (aux.percentage / 100)
-    }));
-    setAuxiliaryWorks(updatedAuxWorks);
   };
 
   // Save auxiliary work
   const saveAuxiliaryWork = (index) => {
-    // You can add any validation or API call here if needed
     console.log('Auxiliary work saved:', auxiliaryWorks[index]);
   };
   
   // Calculate subtotal (main items + auxiliary works)
   const subtotal = totalCost + auxiliaryWorks.reduce((sum, aux) => sum + aux.amount, 0);
   
-  // Calculate GST amount
+  // Calculate GST amount on subtotal
   const gstAmount = subtotal * (gstPercentage / 100);
   
   // Calculate grand total (subtotal + GST)
@@ -284,7 +306,7 @@ const ConstructionEstimateComponent = () => {
                 <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
               </div>
               <div>
-                <p><strong>Total Cost:</strong> Rs. ${grandTotal.toFixed(2)}</p>
+                <p><strong>Grand Total:</strong> Rs. ${grandTotal.toFixed(2)}</p>
               </div>
             </div>
             
@@ -315,13 +337,13 @@ const ConstructionEstimateComponent = () => {
               </tbody>
               <tfoot>
                 <tr>
-                  <td colspan="6" class="text-right"><strong>Total:</strong></td>
+                  <td colspan="6" class="text-right"><strong>Main Items Total:</strong></td>
                   <td class="text-right"><strong>${totalCost.toFixed(2)}</strong></td>
                 </tr>
                 ${auxiliaryWorks.map((aux, index) => `
                   <tr>
                     <td colspan="6" class="text-right">
-                      ${aux.description === 'Other' ? aux.customDescription : aux.description} (${aux.percentage}%):
+                      ${aux.description === 'Other' ? aux.customDescription : aux.description}${aux.isPercentage ? ` (${aux.percentage}%)` : ' (Fixed Amount)'}:
                     </td>
                     <td class="text-right">${aux.amount.toFixed(2)}</td>
                   </tr>
@@ -373,11 +395,11 @@ const ConstructionEstimateComponent = () => {
           auxiliaryWorks: auxiliaryWorks,
           gstPercentage: gstPercentage,
           gstAmount: gstAmount,
+          subtotal: subtotal,
           grandTotal: grandTotal,
           savedAt: new Date().toISOString()
         };
         
-        // Save to memory (using state variables)
         alert('Estimate saved locally (offline mode). Connect to server to sync data.');
         return;
       }
@@ -401,6 +423,7 @@ const ConstructionEstimateComponent = () => {
           auxiliaryWorks: auxiliaryWorks,
           gstPercentage: gstPercentage,
           gstAmount: gstAmount,
+          subtotal: subtotal,
           grandTotal: grandTotal
         }),
       });
@@ -419,6 +442,100 @@ const ConstructionEstimateComponent = () => {
         alert('Estimate saved locally. Connect to server to sync data.');
       }
     }
+  };
+
+  // Preview Modal Component
+  const PreviewModal = () => {
+    if (!showPreview) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg max-w-6xl max-h-full overflow-auto">
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">Estimate Preview</h2>
+              <button
+                onClick={() => setShowPreview(false)}
+                className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded"
+              >
+                Close Preview
+              </button>
+            </div>
+            
+            <div className="border border-gray-300 p-6 bg-white" style={{minHeight: '600px'}}>
+              <h1 className="text-2xl font-bold text-center mb-6">CONSTRUCTION ESTIMATE</h1>
+              
+              <div className="flex justify-between mb-6">
+                <div>
+                  <p><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
+                </div>
+                <div>
+                  <p><strong>Grand Total:</strong> Rs. {grandTotal.toFixed(2)}</p>
+                </div>
+              </div>
+              
+              <table className="w-full border-collapse border border-gray-300 mb-6">
+                <thead className="bg-gray-100">
+                  <tr>
+                    <th className="border border-gray-300 p-2">Sr. No.</th>
+                    <th className="border border-gray-300 p-2">Item No.</th>
+                    <th className="border border-gray-300 p-2">Item of work</th>
+                    <th className="border border-gray-300 p-2">Qty</th>
+                    <th className="border border-gray-300 p-2">Rate</th>
+                    <th className="border border-gray-300 p-2">Unit</th>
+                    <th className="border border-gray-300 p-2">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((item, index) => (
+                    <tr key={item.id}>
+                      <td className="border border-gray-300 p-2 text-center">{index + 1}</td>
+                      <td className="border border-gray-300 p-2 text-center">{item.itemNo}</td>
+                      <td className="border border-gray-300 p-2">{item.description}</td>
+                      <td className="border border-gray-300 p-2 text-right">{parseFloat(item.quantity).toFixed(2)}</td>
+                      <td className="border border-gray-300 p-2 text-right">{parseFloat(item.rate).toFixed(2)}</td>
+                      <td className="border border-gray-300 p-2 text-center">{item.unit}</td>
+                      <td className="border border-gray-300 p-2 text-right">{(parseFloat(item.quantity) * parseFloat(item.rate)).toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="bg-gray-50">
+                  <tr>
+                    <td colSpan="6" className="border border-gray-300 p-2 text-right font-bold">Main Items Total:</td>
+                    <td className="border border-gray-300 p-2 text-right font-bold">{totalCost.toFixed(2)}</td>
+                  </tr>
+                  {auxiliaryWorks.map((aux, index) => (
+                    <tr key={`aux-preview-${index}`}>
+                      <td colSpan="6" className="border border-gray-300 p-2 text-right">
+                        {aux.description === 'Other' ? aux.customDescription : aux.description}
+                        {aux.isPercentage ? ` (${aux.percentage}%)` : ' (Fixed Amount)'}:
+                      </td>
+                      <td className="border border-gray-300 p-2 text-right">{aux.amount.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                  <tr>
+                    <td colSpan="6" className="border border-gray-300 p-2 text-right font-bold">Subtotal:</td>
+                    <td className="border border-gray-300 p-2 text-right font-bold">{subtotal.toFixed(2)}</td>
+                  </tr>
+                  <tr>
+                    <td colSpan="6" className="border border-gray-300 p-2 text-right">GST ({gstPercentage}%):</td>
+                    <td className="border border-gray-300 p-2 text-right">{gstAmount.toFixed(2)}</td>
+                  </tr>
+                  <tr>
+                    <td colSpan="6" className="border border-gray-300 p-2 text-right font-bold text-lg">Grand Total:</td>
+                    <td className="border border-gray-300 p-2 text-right font-bold text-lg">Rs. {grandTotal.toFixed(2)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+              
+              <div className="text-center text-sm text-gray-600 mt-8">
+                This is a computer-generated document. No signature required.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   if (loading) {
@@ -479,8 +596,18 @@ const ConstructionEstimateComponent = () => {
       
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-center mb-4">CONSTRUCTION ESTIMATE</h1>
-        <div className="flex justify-end mb-4">
-          <div className="font-semibold text-lg">Total Cost: Rs. {grandTotal.toFixed(2)}</div>
+        <div className="flex justify-between items-center mb-4">
+          <div className="flex gap-4">
+            <button
+              onClick={() => setShowPreview(true)}
+              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2"
+            >
+              <Eye size={16} /> PDF Preview
+            </button>
+           
+           
+          </div>
+          <div className="font-semibold text-lg">Grand Total: Rs. {grandTotal.toFixed(2)}</div>
         </div>
       </div>
 
@@ -522,13 +649,14 @@ const ConstructionEstimateComponent = () => {
           </tbody>
           <tfoot className="bg-gray-50">
             <tr>
-              <td colSpan="6" className="border border-gray-300 p-2 text-right font-bold">Total:</td>
+              <td colSpan="6" className="border border-gray-300 p-2 text-right font-bold">Main Items Total:</td>
               <td className="border border-gray-300 p-2 text-right font-bold">{totalCost.toFixed(2)}</td>
             </tr>
             {auxiliaryWorks.map((aux, index) => (
               <tr key={`aux-display-${index}`}>
                 <td colSpan="6" className="border border-gray-300 p-2 text-right">
-                  {aux.description === 'Other' ? aux.customDescription : aux.description} ({aux.percentage}%):
+                  {aux.description === 'Other' ? aux.customDescription : aux.description} 
+                  {aux.isPercentage ? ` (${aux.percentage}%)` : ' (Fixed Amount)'}:
                 </td>
                 <td className="border border-gray-300 p-2 text-right">{aux.amount.toFixed(2)}</td>
               </tr>
@@ -546,7 +674,7 @@ const ConstructionEstimateComponent = () => {
                     onClick={addAuxiliaryWork}
                     className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded text-sm"
                   >
-                    Add Item
+                    Add Auxiliary Work
                   </button>
                 </div>
               </td>
@@ -567,68 +695,115 @@ const ConstructionEstimateComponent = () => {
                           <option key={option} value={option}>{option}</option>
                         ))}
                       </select>
-                      <div className="flex items-center">
-                        <input
-                          type="number"
-                          value={aux.percentage}
-                          onChange={(e) => handleAuxiliaryPercentageChange(index, e.target.value)}
-                          className="w-20 border border-gray-300 rounded p-2"
-                          placeholder="%"
-                          step="0.1"
-                          min="0"
-                        />
-                        <span className="mx-2">%</span>
+                      
+<div className="flex items-center gap-2">
+                        <label className="flex items-center">
+                          <input
+                            type="radio"
+                            name={`auxType-${index}`}
+                            checked={aux.isPercentage}
+                            onChange={() => handleAuxiliaryTypeChange(index, true)}
+                            className="mr-1"
+                          />
+                          %
+                        </label>
+                        <label className="flex items-center">
+                          <input
+                            type="radio"
+                            name={`auxType-${index}`}
+                            checked={!aux.isPercentage}
+                            onChange={() => handleAuxiliaryTypeChange(index, false)}
+                            className="mr-1"
+                          />
+                          Fixed
+                        </label>
                       </div>
-                      <div className="w-32 text-right font-semibold">Rs. {aux.amount.toFixed(2)}</div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => saveAuxiliaryWork(index)}
-                          className="bg-green-500 hover:bg-green-600 text-white rounded p-2"
-                          title="Save"
-                        >
-                          <Check size={16} />
-                        </button>
-                        <button
-                          onClick={() => removeAuxiliaryWork(index)}
-                          className="bg-red-500 hover:bg-red-600 text-white rounded p-2"
-                          title="Cancel/Remove"
-                        >
-                          <X size={16} />
-                        </button>
+                      
+                      <button
+                        onClick={() => removeAuxiliaryWork(index)}
+                        className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded"
+                        title="Remove Auxiliary Work"
+                      >
+                        <X size={16} />
+                      </button>
+                      
+                      <button
+                        onClick={() => saveAuxiliaryWork(index)}
+                        className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded"
+                        title="Save Auxiliary Work"
+                      >
+                        <Check size={16} />
+                      </button>
+                    </div>
+                    
+                    {aux.description === 'Other' && (
+                      <input
+                        type="text"
+                        placeholder="Enter custom description"
+                        value={aux.customDescription}
+                        onChange={(e) => handleAuxiliaryCustomDescriptionChange(index, e.target.value)}
+                        className="w-full border border-gray-300 rounded p-2 mb-2"
+                      />
+                    )}
+                    
+                    <div className="flex items-center gap-3">
+                      {aux.isPercentage ? (
+                        <div className="flex items-center gap-2">
+                          <label>Percentage:</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={aux.percentage}
+                            onChange={(e) => handleAuxiliaryPercentageChange(index, e.target.value)}
+                            className="border border-gray-300 rounded p-2 w-24"
+                            placeholder="%"
+                          />
+                          <span>%</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <label>Fixed Amount:</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={aux.amount}
+                            onChange={(e) => handleAuxiliaryAmountChange(index, e.target.value)}
+                            className="border border-gray-300 rounded p-2 w-32"
+                            placeholder="Amount"
+                          />
+                        </div>
+                      )}
+                      
+                      <div className="flex items-center gap-2">
+                        <label>Amount: Rs.</label>
+                        <span className="font-semibold">{aux.amount.toFixed(2)}</span>
                       </div>
                     </div>
-                    {aux.description === 'Other' && (
-                      <div className="mt-2">
-                        <input
-                          type="text"
-                          value={aux.customDescription || ''}
-                          onChange={(e) => handleAuxiliaryCustomDescriptionChange(index, e.target.value)}
-                          className="w-full border border-gray-300 rounded p-2"
-                          placeholder="Enter custom description"
-                        />
-                      </div>
-                    )}
                   </div>
                 </td>
               </tr>
             ))}
             
+            {/* GST Row */}
             <tr>
-              <td colSpan="5" className="border border-gray-300 p-2 text-right">
-                GST:
-              </td>
-              <td className="border border-gray-300 p-2 text-center">
-                <input
-                  type="number"
-                  value={gstPercentage}
-                  onChange={(e) => setGstPercentage(parseFloat(e.target.value) || 0)}
-                  className="w-16 text-center border-0 bg-transparent"
-                  step="0.1"
-                  min="0"
-                />%
+              <td colSpan="6" className="border border-gray-300 p-2 text-right">
+                <div className="flex items-center justify-end gap-2">
+                  <label>GST:</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={gstPercentage}
+                    onChange={(e) => setGstPercentage(parseFloat(e.target.value) || 0)}
+                    className="border border-gray-300 rounded p-1 w-20 text-center"
+                    placeholder="0"
+                  />
+                  <span>%</span>
+                </div>
               </td>
               <td className="border border-gray-300 p-2 text-right">{gstAmount.toFixed(2)}</td>
             </tr>
+            
+            {/* Grand Total Row */}
             <tr>
               <td colSpan="6" className="border border-gray-300 p-2 text-right font-bold text-lg">Grand Total:</td>
               <td className="border border-gray-300 p-2 text-right font-bold text-lg">Rs. {grandTotal.toFixed(2)}</td>
@@ -637,8 +812,17 @@ const ConstructionEstimateComponent = () => {
         </table>
       </div>
 
-     
-     
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+          <div className="flex items-center gap-2 text-red-700">
+            <AlertTriangle size={20} />
+            <span className="font-semibold">Error</span>
+          </div>
+          <p className="text-red-600 text-sm mt-1">{error}</p>
+        </div>
+      )}
+
+      <PreviewModal />
     </div>
   );
 };

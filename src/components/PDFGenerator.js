@@ -557,19 +557,17 @@ const handleStepperClick = (stepId) => {
                   {selectedComponents.coverPage && <Check size={16} className="text-white" />}
                 </div>
               </div>
-              <div className="space-y-2 text-sm text-gray-600">
-                <div className="flex items-center space-x-2">
+              <div className="text-sm text-gray-600">
+                <span className="flex items-center space-x-1">
                   <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
                   <span>Company information</span>
-                </div>
-                <div className="flex items-center space-x-2">
+                  <span className="text-gray-400">•</span>
                   <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
                   <span>Project details</span>
-                </div>
-                <div className="flex items-center space-x-2">
+                  <span className="text-gray-400">•</span>
                   <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
                   <span>Cost estimate</span>
-                </div>
+                </span>
               </div>
             </div>
             {selectedComponents.coverPage && (
@@ -585,7 +583,7 @@ const handleStepperClick = (stepId) => {
           <div 
             className={`group relative overflow-hidden rounded-xl border-2 transition-all duration-300 cursor-pointer ${
               selectedComponents.abstract 
-                ? 'border-purple-500 bg-purple-50 shadow-lg' 
+                ? 'border-blue-500 bg-purple-50 shadow-lg' 
                 : 'border-gray-200 bg-white hover:border-purple-300 hover:shadow-md'
             }`}
             onClick={() => handleComponentToggle('abstract')}
@@ -593,7 +591,7 @@ const handleStepperClick = (stepId) => {
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center space-x-3">
-                  <div className={`p-3 rounded-lg ${selectedComponents.abstract ? 'bg-purple-500' : 'bg-gray-100'}`}>
+                  <div className={`p-3 rounded-lg ${selectedComponents.abstract ? 'bg-blue-500' : 'bg-gray-100'}`}>
                     <FileText className={`${selectedComponents.abstract ? 'text-white' : 'text-gray-600'}`} size={24} />
                   </div>
                   <div>
@@ -602,29 +600,27 @@ const handleStepperClick = (stepId) => {
                   </div>
                 </div>
                 <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${
-                  selectedComponents.abstract ? 'bg-purple-500' : 'bg-gray-300'
+                  selectedComponents.abstract ? 'bg-blue-500' : 'bg-gray-300'
                 }`}>
                   {selectedComponents.abstract && <Check size={16} className="text-white" />}
                 </div>
               </div>
-              <div className="space-y-2 text-sm text-gray-600">
-                <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
+              <div className="text-sm text-gray-600">
+                <span className="flex items-center space-x-1">
+                  <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
                   <span>Item-wise costs</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
+                  <span className="text-gray-400">•</span>
+                  <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
                   <span>Quantity analysis</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
+                  <span className="text-gray-400">•</span>
+                  <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
                   <span>Total estimation</span>
-                </div>
+                </span>
               </div>
             </div>
             {selectedComponents.abstract && (
               <div className="absolute top-2 right-2">
-                <div className="bg-purple-500 text-white text-xs px-2 py-1 rounded-full">
+                <div className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full">
                   Selected
                 </div>
               </div>
@@ -652,7 +648,7 @@ const handleStepperClick = (stepId) => {
             <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-200 overflow-hidden">
               <div className="bg-white border-b border-purple-200 p-4">
                 <div className="flex items-center space-x-2">
-                  <Eye className="text-purple-600" size={20} />
+                  <Eye className="text-blue-600" size={20} />
                   <h3 className="font-semibold text-gray-800">Abstract Preview</h3>
                 </div>
               </div>
@@ -854,10 +850,7 @@ return (
           {selectedDocument === 'bankEstimate' ? renderBankEstimateContent() : renderMTSContent()}
         </div>
 
-        {/* Footer */}
-        <div className="mt-8 text-center text-gray-500 text-sm">
-          <p>© 2024 Construction Management System. All rights reserved.</p>
-        </div>
+        
       </div>
     </div>
   );

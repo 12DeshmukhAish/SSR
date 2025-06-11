@@ -196,7 +196,7 @@ const CoverPageGenerator = () => {
     setHasUnsavedChanges(false);
   };
 
-  // NEW FUNCTION: Handle creating a new cover page
+  // Handle creating a new cover page
   const handleCreateNew = () => {
     const confirmCreate = window.confirm("This will clear the current cover page and create a new one. Are you sure?");
     if (!confirmCreate) return;
@@ -228,7 +228,7 @@ const CoverPageGenerator = () => {
     loadDataFromEstimate();
   };
 
-  // NEW FUNCTION: Load data specifically from estimate (not from saved cover page)
+  // Load data specifically from estimate (not from saved cover page)
   const loadDataFromEstimate = () => {
     try {
       const constructionEstimate = localStorage.getItem('constructionEstimate');
@@ -362,35 +362,6 @@ const CoverPageGenerator = () => {
     alert("Navigating back to estimate page...");
   };
 
-  const handleQuickEdit = (field) => {
-    const newValue = prompt(`Edit ${field}`, formData[field]);
-    if (newValue !== null) {
-      const updatedData = { ...formData, [field]: newValue };
-      setFormData(updatedData);
-      setHasUnsavedChanges(true);
-      
-      // Auto-save the change
-      localStorage.setItem('coverPageData', JSON.stringify(updatedData));
-      
-      // Update related localStorage items for PDF compatibility
-      if (field === 'workName') {
-        localStorage.setItem('abstractWorkName', newValue);
-      }
-      if (field === 'year') {
-        localStorage.setItem('abstractSSR', newValue);
-      }
-      if (field === 'estimateCost') {
-        // Update construction estimate
-        const existingEstimate = localStorage.getItem('constructionEstimate');
-        if (existingEstimate) {
-          const parsedEstimate = JSON.parse(existingEstimate);
-          parsedEstimate.grandTotal = parseFloat(newValue) || 0;
-          localStorage.setItem('constructionEstimate', JSON.stringify(parsedEstimate));
-        }
-      }
-    }
-  };
-
   // Format the estimate cost with commas for Indian number format
   const formatIndianCurrency = (amount) => {
     if (!amount) return '';
@@ -418,16 +389,6 @@ const CoverPageGenerator = () => {
     <div className="w-full h-full flex flex-col items-center justify-center p-4">
       {!pageGenerated ? (
         <div className="w-full max-w-4xl">
-          <div className="mb-4 flex justify-between items-center">
-            <button 
-              onClick={handleBackToEstimate}
-              className="flex items-center gap-1 text-blue-600 hover:text-blue-800"
-            >
-              <ArrowLeft size={16} /> Back to Estimate
-            </button>
-            <h2 className="text-2xl font-bold">Cover Page Generator</h2>
-          </div>
-          
           <div className="flex justify-center mt-8">
             <button 
               onClick={() => setShowModal(true)}
@@ -442,18 +403,17 @@ const CoverPageGenerator = () => {
           <div className="mb-4 flex justify-between items-center">
             <h2 className="text-2xl font-bold">Generated Cover Page</h2>
             <div className="flex gap-4">
-              {/* NEW BUTTON: Create New Cover Page */}
               <button 
                 onClick={handleCreateNew}
                 className="bg-orange-600 text-white py-2 px-4 rounded-md flex items-center gap-2 hover:bg-orange-700 transition-colors"
               >
-                <Plus size={18} /> Create New
+                <Plus size={18} /> Reset
               </button>
               <button 
                 onClick={() => setShowModal(true)}
                 className="bg-gray-200 text-gray-800 py-2 px-4 rounded-md hover:bg-gray-300 transition-colors"
               >
-                Edit Current
+                Edit 
               </button>
               <button 
                 onClick={handleDownload}
@@ -474,14 +434,7 @@ const CoverPageGenerator = () => {
               <div className="w-full h-full border-4 border-gray-800 p-1">
                 <div className="w-full h-full border-4 border-gray-800 flex flex-col items-center p-4 md:p-8">
                   {/* Company Logo and Name */}
-                  <div className="flex flex-col items-center mb-8 md:mb-12 relative group">
-                    <button 
-                      onClick={() => handleQuickEdit('companyName')}
-                      className="absolute -right-4 top-0 opacity-0 group-hover:opacity-100 bg-blue-100 p-1 rounded-full"
-                      title="Edit Company Name"
-                    >
-                      <Edit2 size={16} className="text-blue-600" />
-                    </button>
+                  <div className="flex flex-col items-center mb-8 md:mb-12">
                     {formData.companyLogo ? (
                       <img 
                         src={formData.companyLogo} 
@@ -495,15 +448,8 @@ const CoverPageGenerator = () => {
                       <h1 className="text-3xl md:text-5xl font-bold uppercase tracking-wide">
                         {formData.companyName.toUpperCase()}
                       </h1>
-                      <p className="text-lg md:text-xl text-gray-700 mt-2 relative group">
+                      <p className="text-lg md:text-xl text-gray-700 mt-2">
                         {formData.address.toUpperCase()}
-                        <button 
-                          onClick={() => handleQuickEdit('address')}
-                          className="absolute -right-6 top-0 opacity-0 group-hover:opacity-100 bg-blue-100 p-1 rounded-full"
-                          title="Edit Address"
-                        >
-                          <Edit2 size={14} className="text-blue-600" />
-                        </button>
                       </p>
                     </div>
                   </div>
@@ -517,79 +463,31 @@ const CoverPageGenerator = () => {
                   
                   {/* Work Details */}
                   <div className="w-full flex-grow flex flex-col justify-center text-center">
-                    <div className="mb-6 md:mb-10 relative group">
-                      <button 
-                        onClick={() => handleQuickEdit('workName')}
-                        className="absolute -right-4 top-0 opacity-0 group-hover:opacity-100 bg-blue-100 p-1 rounded-full"
-                        title="Edit Work Name"
-                      >
-                        <Edit2 size={16} className="text-blue-600" />
-                      </button>
+                    <div className="mb-6 md:mb-10">
                       <p className="text-xl md:text-2xl text-red-600 font-bold mb-2">NAME OF WORK </p>
                       <p className="text-xl md:text-2xl text-red-600 font-bold uppercase mb-6 md:mb-8">
                         {formData.workName.toUpperCase()} FOR<br/>
-                        <span className="relative group inline-block">
-                          {formData.clientName.toUpperCase()}
-                          <button 
-                            onClick={() => handleQuickEdit('clientName')}
-                            className="absolute -right-6 top-0 opacity-0 group-hover:opacity-100 bg-blue-100 p-1 rounded-full"
-                            title="Edit Client Name"
-                          >
-                            <Edit2 size={14} className="text-blue-600" />
-                          </button>
-                        </span>
+                        {formData.clientName.toUpperCase()}
                       </p>
                     </div>
                     
-                    <p className="text-lg md:text-2xl mb-6 md:mb-10 relative group">
+                    <p className="text-lg md:text-2xl mb-6 md:mb-10">
                       PROPERTY NO {formData.propertyNo.toUpperCase()}, {formData.propertyAddress.toUpperCase()}
-                      <button 
-                        onClick={() => handleQuickEdit('propertyAddress')}
-                        className="absolute -right-6 top-0 opacity-0 group-hover:opacity-100 bg-blue-100 p-1 rounded-full"
-                        title="Edit Property Address"
-                      >
-                        <Edit2 size={14} className="text-blue-600" />
-                      </button>
                     </p>
                     
-                    <div className="mb-8 md:mb-12 text-center relative group">
-                      <button 
-                        onClick={() => handleQuickEdit('estimateCost')}
-                        className="absolute -right-6 top-0 opacity-0 group-hover:opacity-100 bg-blue-100 p-1 rounded-full"
-                        title="Edit Estimate Cost"
-                      >
-                        <Edit2 size={14} className="text-blue-600" />
-                      </button>
+                    <div className="mb-8 md:mb-12 text-center">
                       <p className="text-lg md:text-2xl font-bold inline-flex items-center">
                         <span>ESTIMATE COST : </span>
                         <span className="mx-2">Rs. {formatIndianCurrency(formData.estimateCost)}</span>
                       </p>
                     </div>
                     
-                    <p className="text-lg md:text-xl text-gray-700 relative group">
+                    <p className="text-lg md:text-xl text-gray-700">
                       ADOPTED SOR OF {formData.year.toUpperCase()}
-                      <button 
-                        onClick={() => handleQuickEdit('year')}
-                        className="absolute -right-6 top-0 opacity-0 group-hover:opacity-100 bg-blue-100 p-1 rounded-full"
-                        title="Edit SOR Year"
-                      >
-                        <Edit2 size={14} className="text-blue-600" />
-                      </button>
                     </p>
                   </div>
                 </div>
               </div>
-            </div>
-            
-            {/* Quick edit button overlay */}
-            <div className="absolute top-2 right-2 z-10 opacity-70 hover:opacity-100">
-              <button 
-                onClick={() => setShowModal(true)}
-                className="bg-blue-600 text-white p-2 rounded-full"
-                title="Edit All Details"
-              >
-                <Edit2 size={14} />
-              </button>
             </div>
           </div>
         </div>

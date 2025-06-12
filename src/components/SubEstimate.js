@@ -57,11 +57,13 @@ const SubEstimateForm = () => {
 
   // State for item management
   const [items, setItems] = useState({});
+  const [itemTotalQuantities, setItemTotalQuantities] = useState({});
   const [itemOptions, setItemOptions] = useState([]);
   const [showAddItemModal, setShowAddItemModal] = useState(false);
   const [currentSubworkId, setCurrentSubworkId] = useState(null);
   const [isItemLoading, setIsItemLoading] = useState(false);
  const [currentWorkOrderId, setCurrentWorkOrderId] = useState(null); 
+ 
   const [selectedItem, setSelectedItem] = useState(null);
   const [itemFormErrors, setItemFormErrors] = useState({});
   const [visibleMeasurements, setVisibleMeasurements] = useState({});
@@ -1783,23 +1785,18 @@ const refreshItemsDisplay = async (subworkId) => {
 };
 const handleViewItemDetails = async (item) => {
   try {
-    // Show loading state
     setIsLoading(true);
     
-    // Set initial data we already have
     setItemDetails({...item});
     setShowItemDetailsModal(true);
     
-    // Get detailed item information
     let detailedItem = null;
     
     try {
-      // First find the matching detailed item from our options
       detailedItem = itemOptions.find(opt => opt.ssrItemId === item.itemNo);
       
       if (detailedItem) {
         console.log("Found detailed item:", detailedItem);
-        // Merge the existing item with the detailed info
         setItemDetails(prevDetails => ({
           ...prevDetails,
           description: detailedItem.description,
@@ -1809,93 +1806,15 @@ const handleViewItemDetails = async (item) => {
           fullUnit: detailedItem.fullUnit,
           completedRate: detailedItem.completedRate,
           labourRate: detailedItem.labourRate,
-          scadaFlag: detailedItem.scadaFlag,
-          category: detailedItem.category,
-          chapterName: detailedItem.chapterName,
-          referenceNo: detailedItem.referenceNo
+          // ... other properties
         }));
       }
-    } catch (specificError) {
-      console.warn("Error getting detailed item:", specificError);
-    }
-    
-    // Fall back to the specific item endpoint if detailed item not found
-    if (!detailedItem) {
-      try {
-        const response = await fetch(`${API_BASE_URL}/txn-items/${item.id}`, {
-          headers: {
-            "Authorization": `Bearer ${jwtToken}`,
-            "Accept": "*/*"
-          }
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          console.log("Item data from txn-items endpoint:", data);
-          setItemDetails(prevDetails => ({...prevDetails, ...data}));
-        }
-      } catch (txnError) {
-        console.warn("Error getting transaction item:", txnError);
-      }
-    }
-    
-    // Now fetch consumption materials for this item
-    try {
-      // Get the detailed item ID
-      const detailedItemId = detailedItem?.id || item.itemNo;
-      
-      // Fetch consumption materials data
-      const consumptionResponse = await fetch(
-        `${API_BASE_URL}/master/consumptionMaterialAndRoad/getDetailedItemId?detailedItemId=${detailedItemId}`, 
-        {
-          headers: {
-            "Authorization": `Bearer ${jwtToken}`,
-            "Accept": "*/*"
-          }
-        }
-      );
-      
-      if (consumptionResponse.ok) {
-        const consumptionData = await consumptionResponse.json();
-        console.log("Consumption materials data:", consumptionData);
-        
-        // Add consumption materials to item details
-        setItemDetails(prevDetails => ({
-          ...prevDetails,
-          consumptionMaterials: consumptionData
-        }));
-        
-        // Now fetch existing transaction item properties if they exist
-        try {
-          const txnPropertiesResponse = await fetch(`${API_BASE_URL}/txn-item-properties/${item.id}`, {
-            headers: {
-              "Authorization": `Bearer ${jwtToken}`,
-              "Accept": "*/*"
-            }
-          });
-          
-          if (txnPropertiesResponse.ok) {
-            const txnPropertiesData = await txnPropertiesResponse.json();
-            console.log("Transaction item properties:", txnPropertiesData);
-            
-            // Add transaction properties to item details
-            setItemDetails(prevDetails => ({
-              ...prevDetails,
-              txnItemProperties: txnPropertiesData
-            }));
-          }
-        } catch (propertiesError) {
-          console.warn("Error fetching transaction item properties:", propertiesError);
-        }
-      }
-    } catch (consumptionError) {
-      console.warn("Error fetching consumption materials:", consumptionError);
-      toast.error("Failed to load material consumption data");
+    } catch (error) {
+      console.error("Error fetching detailed item:", error);
     }
     
   } catch (error) {
-    console.error("Error fetching item details:", error);
-    toast.error(`Failed to load item details: ${error.message}`);
+    console.error("Error in handleViewItemDetails:", error);
   } finally {
     setIsLoading(false);
   }
@@ -2481,14 +2400,11 @@ useEffect(() => {
   checkItemOptionsHealth();
 }, [itemOptions]);
 const renderMeasurementTable = (item) => {
-  // Only show measurement table if this item's measurements are visible
   if (!visibleMeasurements[item.id]) return null;
   
-  // Get all items that came before this one in the current subwork
   const currentSubworkItems = items[item.fkSubworkId] || [];
   const previousItems = [];
   
-  // Add items from this subwork that appear before the current item
   for (const subItem of currentSubworkItems) {
     if (subItem.id === item.id) break;
     previousItems.push(subItem);
@@ -2501,7 +2417,13 @@ const renderMeasurementTable = (item) => {
       unitLabel={item.smallUnit || "Cu.M."} 
       multifloor={true}
       itemsFromParent={previousItems} 
-        completedRate={completedRate} // Renamed prop to avoid conflict
+      completedRate={item.completedRate || 0}
+      onQuantityUpdate={(totalQuantity) => {
+        setItemTotalQuantities(prev => ({
+          ...prev,
+          [item.id]: totalQuantity
+        }));
+      }}
     />
   );
 };
@@ -2537,7 +2459,14 @@ const handleAutoSave = () => {
     setAutoSaveTimeout(timeoutId);
   }
 };
-
+const calculateSubworkTotal = (subworkId) => {
+  const subworkItems = items[subworkId] || [];
+  return subworkItems.reduce((total, item) => {
+    const quantity = itemTotalQuantities[item.id] || 0;
+    const rate = item.completedRate || 0;
+    return total + (quantity * rate);
+  }, 0);
+};
   const navigateToPdfPreview = async () => {
     const allSubworkIds = Object.keys(items);
     
@@ -2621,7 +2550,7 @@ const handleAutoSave = () => {
       </motion.div>
       
       {/* Work Order Information Card */}
-       <motion.div className="bg-white border border-gray-200 rounded-lg p-6 mb-6 shadow-md" variants={itemVariants}>
+<motion.div className="bg-white border border-gray-200 rounded-lg p-6 mb-6 shadow-md" variants={itemVariants}>
       <h2 className="text-xl font-bold mb-4 text-blue-700 border-b pb-2">Work Order Details</h2>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="flex flex-col">
@@ -2649,6 +2578,7 @@ const handleAutoSave = () => {
       </div>
       <Toaster />
     </motion.div>
+
       {/* Add Subwork Form */}
       <motion.div 
         className="mb-6 p-6 border border-gray-300 rounded-lg bg-white shadow-md"
@@ -2687,6 +2617,7 @@ const handleAutoSave = () => {
           </div>
         </div>
       </motion.div>
+
 {/* Subworks Section */}
 <motion.div className="mb-6 bg-white border border-gray-200 rounded-lg shadow-md overflow-hidden" variants={itemVariants}>
   <div className="bg-blue-700 text-white py-3 px-6 flex justify-between items-center">
@@ -2713,20 +2644,32 @@ const handleAutoSave = () => {
           className="p-4 bg-gray-50 flex justify-between items-center cursor-pointer"
           onClick={() => toggleSubwork(subwork.id)}
         >
-          <div className="flex items-center">
+          <div className="flex items-center flex-1">
             <div className="mr-2">
               {expandedSubworks.includes(subwork.id) ? 
                 <FontAwesomeIcon icon={faChevronDown} /> : 
                 <FontAwesomeIcon icon={faChevronRight} />
               }
             </div>
-            <h3 className="font-medium">{subwork.subworkName}</h3>
+            <div className="flex-1">
+              <h3 className="font-medium text-lg">{subwork.subworkName}</h3>
+              {/* Subwork Total Amount Display */}
+              <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-md">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-gray-700">SubEstimate Total Amount:</span>
+                  <span className="text-lg font-bold text-green-600">
+                    ₹{calculateSubworkTotal(subwork.id).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
           <button
             onClick={(e) => {
               e.stopPropagation();
               deleteSubwork(subwork.id);
             }}
+            className="ml-4 text-red-600 hover:text-red-800 transition-colors"
           >
             <FontAwesomeIcon icon={faTrash} />
           </button>
@@ -2844,34 +2787,88 @@ const handleAutoSave = () => {
                               </tr>
                               
                               {/* MeasurementTable row - Show if expanded */}
-                              {visibleMeasurements[item.id] && (
-                                <tr>
-                                  <td colSpan="5">
-                                    <div className="p-4 bg-gray-50 border-t">
-                                      <div className="flex justify-between items-center mb-3">
-                                        <h5 className="text-md font-medium text-gray-700">
-                                          Measurements for: {item.itemNo}
-                                        </h5>
-                                        <button
-                                          onClick={() => setVisibleMeasurements(prev => ({
-                                            ...prev,
-                                            [item.id]: false
-                                          }))}
-                                          className="text-gray-500 hover:text-gray-700"
-                                          title="Hide Measurements"
-                                        >
-                                          <FontAwesomeIcon icon={faTimes} />
-                                        </button>
-                                      </div>
-                                      <MeasurementTable 
-                                        itemId={item.id} 
-                                        token={jwtToken} 
-                                        unitLabel={item.smallUnit || "Cu.M."} 
-                                      />
-                                    </div>
-                                  </td>
-                                </tr>
-                              )}
+{visibleMeasurements[item.id] && (
+  <tr>
+    <td colSpan="5">
+      <div className="p-4 bg-gray-50 border-t">
+        <div className="flex justify-between items-center mb-3">
+          <h5 className="text-md font-medium text-gray-700">
+            Measurements for: {item.itemNo}
+          </h5>
+          <button
+            onClick={() => setVisibleMeasurements(prev => ({
+              ...prev,
+              [item.id]: false
+            }))}
+            className="text-gray-500 hover:text-gray-700"
+            title="Hide Measurements"
+          >
+            <FontAwesomeIcon icon={faTimes} />
+          </button>
+        </div>
+        
+        {/* Measurement Table */}
+        <MeasurementTable 
+          itemId={item.id} 
+          token={jwtToken} 
+          unitLabel={item.smallUnit || "Cu.M."} 
+          multifloor={true}
+          itemsFromParent={(() => {
+            // Calculate previous items for this specific item
+            const currentSubworkItems = items[subwork.id] || [];
+            const previousItems = [];
+            for (const subItem of currentSubworkItems) {
+              if (subItem.id === item.id) break;
+              previousItems.push(subItem);
+            }
+            return previousItems;
+          })()}
+          completedRate={item.completedRate || 0}
+          onQuantityUpdate={(totalQuantity) => {
+            // Update the total quantity for this item
+            setItemTotalQuantities(prev => ({
+              ...prev,
+              [item.id]: totalQuantity
+            }));
+          }}
+        />
+      </div>
+    </td>
+  </tr>
+)}
+                            {visibleMeasurements[item.id] && (
+  <tr>
+    <td colSpan="5">
+      <div className="px-4 pb-4 bg-gray-50">
+        {/* Total RA Display */}
+        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+         
+          <div className="mt-2 grid grid-cols-4 gap-4 text-sm">
+            <div>
+              <span className="font-medium text-gray-700">Rate:</span>
+              <div className="text-blue-600 font-semibold">
+                ₹{(item.completedRate || 0).toFixed(2)}
+              </div>
+            </div>
+            <div>
+              <span className="font-medium text-gray-700">Quantity:</span>
+              <div className="text-blue-600 font-semibold">
+                {(itemTotalQuantities[item.id] || 0).toFixed(3)} {item.smallUnit || "Cu.M."}
+              </div>
+            </div>
+            <div>
+              <span className="font-medium text-gray-700">Total Amount:</span>
+              <div className="text-green-600 font-bold text-lg">
+                ₹{((item.completedRate || 0) * (itemTotalQuantities[item.id] || 0)).toFixed(2)}
+              </div>
+            </div>
+            
+          </div>
+        </div>
+      </div>
+    </td>
+  </tr>
+)}
                             </React.Fragment>
                           ))}
                         

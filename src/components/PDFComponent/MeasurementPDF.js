@@ -25,6 +25,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: 'bold',
     textAlign: 'center',
+    color: '#000000',
   },
   measurementSheetTitle: {
     fontSize: 12,
@@ -32,6 +33,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 5,
     marginBottom: 15,
+    color: '#000000',
   },
   table: {
     display: 'table',
@@ -52,19 +54,22 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0.5,
     borderBottomColor: '#000',
     borderBottomStyle: 'solid',
-    backgroundColor: '#f2f2f2',
+    backgroundColor: '#f8f9fa',
     marginBottom: 0,
   },
   tableColHeader: {
     padding: 3,
     fontWeight: 'bold',
     textAlign: 'center',
+    color: '#000000',
   },
   tableCol: {
     padding: 3,
+    color: '#000000',
   },
   lastTableCol: {
     padding: 3,
+    color: '#000000',
   },
   srNoCol: { width: '8%' },
   itemNoCol: { width: '10%' },
@@ -76,6 +81,7 @@ const styles = StyleSheet.create({
   qtyCol: { width: '8%' },
   emptyCol: {
     padding: 3,
+    color: '#000000',
   },
   itemRow: {
     marginTop: 0,
@@ -110,6 +116,7 @@ const styles = StyleSheet.create({
     bottom: 15,
     right: 15,
     textAlign: 'right',
+    color: '#000000',
   },
   netQuantityRow: {
     flexDirection: 'row',
@@ -122,14 +129,17 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     fontWeight: 'bold',
     paddingRight: 5,
+    color: '#000000',
   },
   netQuantityValue: {
     textAlign: 'center',
     fontWeight: 'bold',
+    color: '#000000',
   },
   netQuantityUnit: {
     textAlign: 'center',
     fontWeight: 'bold',
+    color: '#000000',
   },
   spacerRow: {
     height: 10,
@@ -290,7 +300,7 @@ export const MeasurementPDF = ({ workOrderId, nameOfWork, items }) => (
                         <Text></Text>
                       </View>
                       <View style={[styles.tableCol, { width: '66%' }, styles.descriptionText]}>
-                        <Text style={{ fontWeight: 'bold' }}>{floorKey}</Text>
+                        <Text style={{ fontWeight: 'bold', color: '#000000' }}>{floorKey}</Text>
                       </View>
                       <View style={[styles.tableCol, styles.qtyCol, styles.lastTableCol]}>
                         <Text></Text>
@@ -361,7 +371,7 @@ export const MeasurementPDF = ({ workOrderId, nameOfWork, items }) => (
                 <Text>Net Quantity:</Text>
               </View>
               <View style={[styles.tableCol, styles.qtyCol, styles.netQuantityValue, styles.lastTableCol]}>
-                <Text>{calculateTotalQuantity(item.measurements)} {item.unit || ''}</Text>
+                <Text>{calculateTotalQuantity(item.measurements)} {item.smallUnit || ''}</Text>
               </View>
             </View>
             

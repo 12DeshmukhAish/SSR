@@ -675,7 +675,7 @@ const handleStepperClick = (stepId) => {
     );
   };
 
-  const renderMTSContent = () => {
+ const renderMTSContent = () => {
     if (loading) {
       return (
         <div className="text-center py-12">
@@ -712,6 +712,7 @@ const handleStepperClick = (stepId) => {
         </div>
       );
     }
+   
    const renderStepperSection = () => (
   <div className="mb-6">
     <div className="mb-6 mt-2 p-4 border border-gray-300 rounded bg-white shadow">
@@ -728,22 +729,34 @@ const handleStepperClick = (stepId) => {
     </div>
   </div>
 );
-     
-    return (
+     return (
       <div className="space-y-6">
        
-          <div className="mb-6">
-                              </div>
+        <div className="mb-6">
+        </div>
+        
         <div className="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl border border-indigo-200 overflow-hidden">
           <div className="bg-white border-b border-indigo-200 p-4">
-            <div className="flex items-center space-x-2">
-              <Eye className="text-indigo-600" size={20} />
-              <h3 className="font-semibold text-gray-800">Measurement Sheet Preview</h3>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Eye className="text-indigo-600" size={20} />
+                <h3 className="font-semibold text-gray-800">Measurement Sheet Preview</h3>
+              </div>
+              
             </div>
           </div>
           <div className="p-6">
-            <div className="h-96 rounded-lg overflow-hidden shadow-inner">
-              <PDFViewer width="100%" height="100%" style={{ border: 'none', borderRadius: '8px' }}>
+            <div className="h-[600px] rounded-lg overflow-hidden border border-gray-300 bg-white shadow-inner">
+              <PDFViewer 
+                width="100%" 
+                height="100%" 
+                style={{ 
+                  border: 'none', 
+                  borderRadius: '8px',
+                  backgroundColor: '#ffffff'
+                }}
+                showToolbar={false}
+              >
                 <Document>
                   <MeasurementPDF 
                     workOrderId={workInfo.workOrderId} 
@@ -755,53 +768,50 @@ const handleStepperClick = (stepId) => {
             </div>
           </div>
         </div>
-        
-        <div className="flex justify-center">
-          <button 
-            onClick={() => {
-              const generateMTSPDF = async () => {
-                try {
-                  const { nameOfWork, workOrderId, revisionNumber } = workInfo;
-                  const fileName = `MTS_${workOrderId || 'document'}_${revisionNumber || '1'}.pdf`;
-                  const loadingToast = toast.loading('Generating MTS PDF...');
+        <button 
+                onClick={() => {
+                  const generateMTSPDF = async () => {
+                    try {
+                      const { nameOfWork, workOrderId, revisionNumber } = workInfo;
+                      const fileName = `MTS_${workOrderId || 'document'}_${revisionNumber || '1'}.pdf`;
+                      const loadingToast = toast.loading('Generating MTS PDF...');
 
-                  const MTSDocument = () => (
-                    <Document>
-                      <MeasurementPDF 
-                        workOrderId={workOrderId || 'WO-001'} 
-                        nameOfWork={nameOfWork || 'Construction Work'} 
-                        items={items} 
-                      />
-                    </Document>
-                  );
+                      const MTSDocument = () => (
+                        <Document>
+                          <MeasurementPDF 
+                            workOrderId={workOrderId || 'WO-001'} 
+                            nameOfWork={nameOfWork || 'Construction Work'} 
+                            items={items} 
+                          />
+                        </Document>
+                      );
 
-                  const blob = await pdf(<MTSDocument />).toBlob();
-                  
-                  const link = document.createElement('a');
-                  link.href = URL.createObjectURL(blob);
-                  link.download = fileName;
-                  link.click();
-                  
-                  URL.revokeObjectURL(link.href);
-                  
-                  toast.dismiss(loadingToast);
-                  toast.success('MTS PDF downloaded successfully!');
-                } catch (err) {
-                  console.error("Error generating MTS PDF:", err);
-                  toast.error(`Failed to generate MTS PDF: ${err.message}`);
-                }
-              };
-              generateMTSPDF();
-            }}
-            className="group relative bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-4 px-8 rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 flex items-center justify-center shadow-lg hover:shadow-xl transform hover:-translate-y-1"
-            disabled={loading}
-          >
-            <Download className="mr-3 group-hover:animate-bounce" size={20} />
-            <span className="font-semibold">Download MTS PDF</span>
-            <div className="absolute inset-0 rounded-xl bg-white opacity-0 group-hover:opacity-10 transition-opacity"></div>
-          </button>
-        </div>
+                      const blob = await pdf(<MTSDocument />).toBlob();
+                      
+                      const link = document.createElement('a');
+                      link.href = URL.createObjectURL(blob);
+                      link.download = fileName;
+                      link.click();
+                      
+                      URL.revokeObjectURL(link.href);
+                      
+                      toast.dismiss(loadingToast);
+                      toast.success('MTS PDF downloaded successfully!');
+                    } catch (err) {
+                      console.error("Error generating MTS PDF:", err);
+                      toast.error(`Failed to generate MTS PDF: ${err.message}`);
+                    }
+                  };
+                  generateMTSPDF();
+                }}
+                className="group relative bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-2 px-4 rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 flex items-center shadow-lg hover:shadow-xl"
+                disabled={loading}
+              >
+                <Download className="mr-2 group-hover:animate-bounce" size={16} />
+                <span className="font-medium">Download PDF</span>
+              </button>
       </div>
+      
     );
   };
 return (

@@ -28,8 +28,9 @@ const MeasurementTable = ({
   multifloor = false, 
   itemsFromParent = [], 
   onMeasurementDrop,
-  
-  completedRate = 0 // Add completedRate prop
+   completedRate,
+  onQuantityUpdate
+  // Add completedRate prop
 }) => {
   const [measurements, setMeasurements] = useState([]);
   const [showInput, setShowInput] = useState(false);
@@ -592,6 +593,25 @@ const MeasurementTable = ({
       y: e.clientY
     });
   };
+ useEffect(() => {
+    if (measurements && measurements.length > 0) {
+      const total = measurements.reduce((sum, measurement) => {
+        // Adjust this calculation based on how your measurements store quantity
+        const quantity = parseFloat(measurement.quantity) || 0;
+        return sum + quantity;
+      }, 0);
+      
+      // Call the callback to update parent component
+      if (onQuantityUpdate && typeof onQuantityUpdate === 'function') {
+        onQuantityUpdate(total);
+      }
+    } else {
+      // If no measurements, set quantity to 0
+      if (onQuantityUpdate && typeof onQuantityUpdate === 'function') {
+        onQuantityUpdate(0);
+      }
+    }
+  }, [measurements, onQuantityUpdate]);
 
   // ENHANCED PASTE FUNCTION - Unit-wise field filtering
   const handlePasteFromClipboard = async () => {
@@ -981,27 +1001,28 @@ const MeasurementTable = ({
                   </div>
 
                   {/* Floor/Lift/Rise (if multifloor) */}
-                  {multifloor && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Floor/Lift/Rise
-                      </label>
-                      <select
-                        name="floorLiftRise"
-                        value={formData.floorLiftRise}
-                        onChange={handleChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        disabled={saving}
-                      >
-                        <option value="">Select Floor</option>
-                        {floors.map(floor => (
-                          <option key={floor.id} value={floor.floorName}>
-                            {floor.floorName}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                  {/* {multifloor && (
+                    // <div>
+                    //   <label className="block text-sm font-medium text-gray-700 mb-1">
+                    //     Floor/Lift/Rise
+                    //   </label>
+                    //   <select
+                    //     name="floorLiftRise"
+                    //     value={formData.floorLiftRise}
+                    //     onChange={handleChange}
+                    //     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    //     disabled={saving}
+                    //   >
+                    //     <option value="">Select Floor</option>
+                    //     {floors.map(floor => (
+                    //       <option key={floor.id} value={floor.floorName}>
+                    //         {floor.floorName}
+                    //       </option>
+                    //     ))}
+                    //   </select>
+                    // </div>
                   )}
+                </div> */}
                 </div>
 
                 {/* Measurement Fields */}

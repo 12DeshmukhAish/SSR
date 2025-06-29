@@ -26,6 +26,7 @@ const MeasurementTable = ({
   token, 
   unitLabel = "Cu.M.", 
   multifloor = false, 
+   fkSsrId = 0,
   itemsFromParent = [], 
   onMeasurementDrop,
    completedRate,
@@ -33,13 +34,15 @@ const MeasurementTable = ({
   // Add completedRate prop
 }) => {
   const [measurements, setMeasurements] = useState([]);
-  const [showInput, setShowInput] = useState(false);
+const [showInput, setShowInput] = useState(true); 
   const [loading, setLoading] = useState(true);
   const [formError, setFormError] = useState("");
   const [apiError, setApiError] = useState(null);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
-  const [floors, setFloors] = useState([]);
+   const [floors, setFloors] = useState([]);
+  const [isLoadingFloors, setIsLoadingFloors] = useState(false);
+    const [selectedFloor, setSelectedFloor] = useState(''); 
   const [selectedMeasurements, setSelectedMeasurements] = useState(new Set());
   const [contextMenu, setContextMenu] = useState({ show: false, x: 0, y: 0 });
   const [clipboardStatus, setClipboardStatus] = useState({ hasData: false, count: 0 });
@@ -403,12 +406,12 @@ const MeasurementTable = ({
   };
 
   // Fetch floors if multifloor is enabled
-  const fetchFloors = async () => {
-    if (!multifloor) return;
+    const fetchFloors = async () => {
+    if (!multifloor || fkSsrId === 0) return;
     
     try {
       const res = await fetch(
-        "https://24.101.103.87:8082/api/v1/building-floor-adjustments",
+        `https://24.101.103.87:8082/api/v1/building-floor-adjustments/BySsrId/${fkSsrId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -416,20 +419,41 @@ const MeasurementTable = ({
           },
         }
       );
-      if (!res.ok) throw new Error(`API responded with status ${res.status}`);
+      
+      if (!res.ok) {
+        throw new Error(`API responded with status ${res.status}`);
+      }
+      
       const data = await res.json();
-      setFloors(Array.isArray(data) ? data : []);
+      console.log('Floor data received:', data);
+      
+      const floorOptions = Array.isArray(data) ? data.map(item => ({
+        id: item.floorAdjustmetId,
+        floorLevel: item.floorLevel,
+        percentageIncrease: item.percentageIncrease
+      })) : [];
+      
+      setFloors(floorOptions);
+      console.log('Floors set:', floorOptions);
     } catch (err) {
       console.error("Failed to load floors:", err);
+      setFloors([]);
     }
   };
 
   useEffect(() => {
     if (itemId && token) {
       fetchMeasurements();
-      fetchFloors();
+      if (multifloor && fkSsrId > 0) {
+        fetchFloors();
+      }
     }
-  }, [itemId, token, multifloor]);
+  }, [itemId, token, multifloor, fkSsrId]); 
+//  // Add fkSsrId here
+//    useEffect(() => {
+//     fetchFloors();
+//   }, [multifloor, fkSsrId, token]);
+
 
   // Open inline form
   const handleOpenInlineForm = () => {
@@ -452,80 +476,85 @@ const MeasurementTable = ({
 
   // Save function
   const handleSave = async () => {
-    const validationError = validate();
-    if (validationError) {
-      setFormError(validationError);
-      return;
-    }
+  const validationError = validate();
+  if (validationError) {
+    setFormError(validationError);
+    return;
+  }
+  
+  setSaving(true);
+  setFormError("");
+  
+  const payload = {
+    id: editId || 0,
+    description: formData.description.trim(),
+    number: parseFloat(formData.number) || 0,
+    multiplyNumber: parseFloat(formData.multiplyNumber) || 1,
+    length: parseFloat(formData.length) || 0,
+    width: parseFloat(formData.width) || 0,
+    height: parseFloat(formData.height) || 0,
+    quantity: parseFloat(formData.quantity) || 0,
+    unit: formData.unit || unitLabel,
+    fkTxnItemId: parseInt(itemId),
+    floorLiftRise: formData.floorLiftRise || null
+  };
+  
+  const method = editId ? 'PUT' : 'POST';
+  const url = `https://24.101.103.87:8082/api/txn-items-mts${editId ? '/' + editId : ''}`;
     
-    setSaving(true);
-    setFormError("");
+      try {
+    const resp = await fetch(url, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    });
     
-    const payload = {
-      id: editId || 0,
-      description: formData.description.trim(),
-      number: parseFloat(formData.number) || 0,
-      multiplyNumber: parseFloat(formData.multiplyNumber) || 1,
-      length: parseFloat(formData.length) || 0,
-      width: parseFloat(formData.width) || 0,
-      height: parseFloat(formData.height) || 0,
-      quantity: parseFloat(formData.quantity) || 0,
-      unit: formData.unit || unitLabel,
-      fkTxnItemId: parseInt(itemId),
-      floorLiftRise: formData.floorLiftRise || null
-    };
-    
-    const method = editId ? 'PUT' : 'POST';
-    const url = `https://24.101.103.87:8082/api/txn-items-mts${editId ? '/' + editId : ''}`;
-    
-    try {
-      const resp = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
       
       if (!resp.ok) {
         const errorText = await resp.text();
         throw new Error(`API responded with status ${resp.status}: ${errorText}`);
       }
       
-      resetForm();
-      fetchMeasurements();
-      showNotification(
-        editId ? 'Measurement updated successfully' : 'Measurement added successfully',
-        'success'
-      );
-    } catch (err) {
-      console.error('Save error:', err);
-      setFormError("Failed to save measurement. Please check your data and try again.");
-      showNotification('Failed to save measurement', 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleEdit = (m) => {
-    setEditId(m.id);
-    setShowInput(true);
-    setFormError("");
+       resetForm();
+    fetchMeasurements();
     
-    setFormData({
-      description: m.description,
-      number: m.number,
-      multiplyNumber: m.multiplyNumber || 1,
-      length: m.length,
-      width: m.width,
-      height: m.height,
-      quantity: m.quantity,
-      unit: m.unit || unitLabel,
-      floorLiftRise: m.floorLiftRise || ''
-    });
-  };
-
+    // ADD THIS LINE: Auto-collapse after successful add (not edit)
+    if (!editId) {
+      setIsCollapsed(true);
+    }
+       showNotification(
+      editId ? 'Measurement updated successfully' : 'Measurement added successfully',
+      'success'
+    );
+  } catch (err) {
+    console.error('Save error:', err);
+    setFormError("Failed to save measurement. Please check your data and try again.");
+    showNotification('Failed to save measurement', 'error');
+  } finally {
+    setSaving(false);
+  }
+};
+  const handleEdit = (m) => {
+  setEditId(m.id);
+  // ADD THIS LINE: Expand the section when editing
+  setIsCollapsed(false);
+  setFormError("");
+  
+  setFormData({
+    description: m.description,
+    number: m.number,
+    multiplyNumber: m.multiplyNumber || 1,
+    length: m.length,
+    width: m.width,
+    height: m.height,
+    quantity: m.quantity,
+    unit: m.unit || unitLabel,
+    floorLiftRise: m.floorLiftRise || ''
+  });
+};
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this measurement?")) return;
     
@@ -550,21 +579,22 @@ const MeasurementTable = ({
   };
 
   const resetForm = () => {
-    setShowInput(false);
-    setEditId(null);
-    setFormData({
-      description: '',
-      number: '',
-      multiplyNumber: '1',
-      length: '',
-      width: '',
-      height: '',
-      quantity: '',
-      unit: unitLabel,
-      floorLiftRise: ''
-    });
-    setFormError("");
-  };
+  // REMOVE this line: setShowInput(false);
+  // Keep showInput always true so the form row is always visible
+  setEditId(null);
+  setFormData({
+    description: '',
+    number: '',
+    multiplyNumber: '1',
+    length: '',
+    width: '',
+    height: '',
+    quantity: '',
+    unit: unitLabel,
+    floorLiftRise: ''
+  });
+  setFormError("");
+};
 
   // Helper functions for selection and context menu
   const handleSelectAll = (e) => {
@@ -868,31 +898,31 @@ const MeasurementTable = ({
 
       {/* Header */}
       <div className="flex justify-between items-center p-4 border-b border-gray-200">
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            className="text-gray-600 hover:text-gray-800 p-1"
-            title={isCollapsed ? "Expand measurements" : "Collapse measurements"}
-          >
-            <FontAwesomeIcon 
-              icon={isCollapsed ? faChevronRight : faChevronDown} 
-              className="text-lg"
-            />
-          </button>
-         <h3 className="text-lg font-semibold text-gray-800">
-            Measurements ({measurements.length})
-          </h3>
+  <div className="flex items-center space-x-4">
+    <button
+      onClick={() => setIsCollapsed(!isCollapsed)}
+      className="text-gray-600 hover:text-gray-800 p-1"
+      title={isCollapsed ? "Expand measurements" : "Collapse measurements"}
+    >
+      <FontAwesomeIcon 
+        icon={isCollapsed ? faChevronRight : faChevronDown}
+        className="text-lg"
+      />
+    </button>
+   
+    <h3 className="text-lg font-semibold text-gray-800">
+      Measurements ({measurements.length})
+    </h3>
           
           {/* Summary Stats */}
           <div className="flex items-center space-x-6 text-sm">
             <div className="flex items-center space-x-1 text-blue-600">
-              <FontAwesomeIcon icon={faCalculator} className="text-xs" />
-              <span>Total: {totalQuantity.toFixed(2)} {unitLabel}</span>
+      
             </div>
             {currentCompletedRate > 0 && (
               <div className="flex items-center space-x-1 text-green-600">
-                <FontAwesomeIcon icon={faRupeeSign} className="text-xs" />
-                <span>RA: {formatCurrency(totalRA)}</span>
+                
+
               </div>
             )}
           </div>
@@ -900,19 +930,20 @@ const MeasurementTable = ({
         
         <div className="flex items-center space-x-2">
           {/* Clipboard Status */}
-          {clipboardStatus.hasData && (
-            <div className="flex items-center space-x-1 px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs">
-              <FontAwesomeIcon icon={faClipboard} />
-              <span>{clipboardStatus.count} copied</span>
-              <button
-                onClick={handleClearClipboard}
-                className="ml-1 text-blue-500 hover:text-blue-700"
-                title="Clear clipboard"
-              >
-                <FontAwesomeIcon icon={faTimes} className="text-xs" />
-              </button>
-            </div>
-          )}
+        {clipboardStatus.hasData && (
+      <div className="flex items-center space-x-1 px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs">
+        <FontAwesome icon={faClipboard} />
+        <span>{clipboardStatus.count} copied</span>
+        <button
+          onClick={handleClearClipboard}
+          className="ml-1 text-blue-500 hover:text-blue-700"
+          title="Clear clipboard"
+        >
+          <FontAwesome icon={faTimes} className="text-xs" />
+        </button>
+      </div>
+    )}
+         
           
           {/* Paste Guide Toggle */}
           {clipboardStatus.hasData && (
@@ -926,14 +957,14 @@ const MeasurementTable = ({
             </button>
           )}
           
-          <button
+          {/* <button
             onClick={handleOpenInlineForm}
             className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 flex items-center space-x-1 text-sm"
             disabled={saving}
           >
             <FontAwesomeIcon icon={faPlus} />
             <span>Add</span>
-          </button>
+          </button> */}
         </div>
       </div>
 
@@ -1000,29 +1031,26 @@ const MeasurementTable = ({
                     />
                   </div>
 
-                  {/* Floor/Lift/Rise (if multifloor) */}
-                  {/* {multifloor && (
-                    // <div>
-                    //   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    //     Floor/Lift/Rise
-                    //   </label>
-                    //   <select
-                    //     name="floorLiftRise"
-                    //     value={formData.floorLiftRise}
-                    //     onChange={handleChange}
-                    //     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    //     disabled={saving}
-                    //   >
-                    //     <option value="">Select Floor</option>
-                    //     {floors.map(floor => (
-                    //       <option key={floor.id} value={floor.floorName}>
-                    //         {floor.floorName}
-                    //       </option>
-                    //     ))}
-                    //   </select>
-                    // </div>
-                  )}
-                </div> */}
+              {multifloor && (
+  <div className="mb-4">
+    <label className="block text-sm font-medium text-gray-700 mb-2">
+      Floor Level {multifloor === 1 && '*'}
+    </label>
+    <select
+      value={selectedFloor}
+      onChange={(e) => setSelectedFloor(e.target.value)}
+      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+      required={multifloor === 1}
+    >
+      <option value="">Select Floor Level</option>
+      {floors.map((floor) => (
+        <option key={floor.id} value={floor.id}>
+          {floor.floorLevel}
+        </option>
+      ))}
+    </select>
+  </div>
+)}
                 </div>
 
                 {/* Measurement Fields */}
@@ -1155,27 +1183,27 @@ const MeasurementTable = ({
                 )}
 
                 {/* Form Actions */}
-                <div className="flex items-center space-x-3">
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:opacity-50 flex items-center space-x-2"
-                  >
-                    <FontAwesomeIcon icon={saving ? faCheck : faSave} />
-                    <span>{saving ? 'Saving...' : (editId ? 'Update' : 'Save')}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={resetForm}
-                    disabled={saving}
-                    className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 disabled:opacity-50 flex items-center space-x-2"
-                  >
-                    <FontAwesomeIcon icon={faTimes} />
-                    <span>Cancel</span>
-                  </button>
-                </div>
-              </form>
-            </div>
+                 <div className="flex items-center space-x-3">
+          <button
+            type="submit"
+            disabled={saving}
+            className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:opacity-50 flex items-center space-x-2"
+          >
+            <FontAwesomeIcon icon={saving ? faCheck : faSave} />
+            <span>{saving ? 'Saving...' : (editId ? 'Update' : 'Save')}</span>
+          </button>
+          <button
+            type="button"
+            onClick={resetForm}
+            disabled={saving}
+            className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 disabled:opacity-50 flex items-center space-x-2"
+          >
+            <FontAwesomeIcon icon={faTimes} />
+            <span>{editId ? 'Cancel' : 'Clear'}</span>
+          </button>
+        </div>
+      </form>
+    </div>
           )}
 
           {/* Measurements Table */}
@@ -1219,14 +1247,12 @@ const MeasurementTable = ({
     <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
       Qty ({unitLabel})
     </th>
-    {multifloor && (
-      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-        Floor
-      </th>
-    )}
+    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+      Floor Level
+    </th>
     {currentCompletedRate > 0 && (
       <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-        RA Amount (₹)
+        Total Amount Before RA(₹)
       </th>
     )}
     <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -1234,94 +1260,92 @@ const MeasurementTable = ({
     </th>
   </tr>
 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {measurements.map((m) => {
-                    const measurementRA = (parseFloat(m.quantity) || 0) * currentCompletedRate;
-                    return (
-                      <tr 
-                        key={m.id}
-                        className={`hover:bg-gray-50 ${selectedMeasurements.has(m.id) ? 'bg-blue-50' : ''}`}
-                      >
-                        <td className="px-3 py-4 whitespace-nowrap">
-                          <input
-                            type="checkbox"
-                            checked={selectedMeasurements.has(m.id)}
-                            onChange={(e) => handleSelectMeasurement(m.id, e)}
-                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                          />
-                        </td>
-                        <td className="px-3 py-4 text-sm text-gray-900 max-w-xs truncate" title={m.description}>
-                          {m.description}
-                        </td>
-                        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {m.number}
-                        </td>
-                        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {m.multiplyNumber || 1}
-                        </td>
-                        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {m.length || '-'}
-                        </td>
-                        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {m.width || '-'}
-                        </td>
-                        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {m.height || '-'}
-                        </td>
-                        <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {parseFloat(m.quantity).toFixed(2)}
-                        </td>
-                        {multifloor && (
-                          <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {m.floorLiftRise || '-'}
-                          </td>
-                        )}
-                        {currentCompletedRate > 0 && (
-                          <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-green-600">
-                            {formatCurrency(measurementRA)}
-                          </td>
-                        )}
-                        <td className="px-3 py-4 whitespace-nowrap text-sm font-medium">
-                          <div className="flex items-center space-x-2">
-                            <button
-                              onClick={() => handleEdit(m)}
-                              className="text-blue-600 hover:text-blue-900"
-                              title="Edit"
-                            >
-                              <FontAwesomeIcon icon={faEdit} />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(m.id)}
-                              className="text-red-600 hover:text-red-900"
-                              disabled={deletingId === m.id}
-                              title="Delete"
-                            >
-                              <FontAwesomeIcon icon={faTrash} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
+               <tbody className="bg-white divide-y divide-gray-200">
+  {measurements.map((m) => {
+    const measurementRA = (parseFloat(m.quantity) || 0) * currentCompletedRate;
+    return (
+      <tr 
+        key={m.id}
+        className={`hover:bg-gray-50 ${selectedMeasurements.has(m.id) ? 'bg-blue-50' : ''}`}
+      >
+        <td className="px-3 py-4 whitespace-nowrap">
+          <input
+            type="checkbox"
+            checked={selectedMeasurements.has(m.id)}
+            onChange={(e) => handleSelectMeasurement(m.id, e)}
+            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+          />
+        </td>
+        <td className="px-3 py-4 text-sm text-gray-900 max-w-xs truncate" title={m.description}>
+          {m.description}
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+          {m.number}
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+          {m.multiplyNumber || 1}
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+          {m.length || '-'}
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+          {m.width || '-'}
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+          {m.height || '-'}
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+          {parseFloat(m.quantity).toFixed(2)}
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+          {m.floorLiftRise || '-'}
+        </td>
+        {currentCompletedRate > 0 && (
+          <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-green-600">
+            {formatCurrency(measurementRA)}
+          </td>
+        )}
+        <td className="px-3 py-4 whitespace-nowrap text-sm font-medium">
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => handleEdit(m)}
+              className="text-blue-600 hover:text-blue-900"
+              title="Edit"
+            >
+              <FontAwesomeIcon icon={faEdit} />
+            </button>
+            <button
+              onClick={() => handleDelete(m.id)}
+              className="text-red-600 hover:text-red-900"
+              disabled={deletingId === m.id}
+              title="Delete"
+            >
+              <FontAwesomeIcon icon={faTrash} />
+            </button>
+          </div>
+        </td>
+      </tr>
+    );
+  })}
+</tbody>
                 {/* Table Footer with Totals */}
                 <tfoot className="bg-gray-50">
-                  <tr>
-                    <td colSpan={multifloor ? 8 : 7} className="px-3 py-3 text-right font-semibold text-gray-900">
-                      Total:
-                    </td>
-                    <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-gray-900">
-                      {totalQuantity.toFixed(2)} {unitLabel}
-                    </td>
-                    {multifloor && <td></td>}
-                    {currentCompletedRate > 0 && (
-                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-green-600">
-                        {formatCurrency(totalRA)}
-                      </td>
-                    )}
-                    <td></td>
-                  </tr>
-                </tfoot>
+  <tr>
+    <td colSpan="7" className="px-3 py-3 text-right font-semibold text-gray-900">
+      Total:
+    </td>
+    <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-gray-900">
+      {totalQuantity.toFixed(2)} {unitLabel}
+    </td>
+    <td className="px-3 py-3"></td> {/* Floor Level column */}
+    {currentCompletedRate > 0 && (
+      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-green-600">
+        {formatCurrency(totalRA)}
+      </td>
+    )}
+    <td className="px-3 py-3"></td> {/* Actions column */}
+  </tr>
+</tfoot>
               </table>
             )}
           </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Edit2, Save, User, Shield, Calendar, Phone, Mail, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { X, Edit2, Save, User, Shield, Calendar, Phone, Mail, CheckCircle, XCircle, Loader2, Key } from 'lucide-react';
 
 const ProfilePage = () => {
   const [userData, setUserData] = useState(null);
@@ -12,15 +12,48 @@ const ProfilePage = () => {
   const [animateForm, setAnimateForm] = useState(false);
   const [saveAnimation, setSaveAnimation] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState(null);
+
+  // Function to get current user ID from localStorage or JWT token
+  const getCurrentUserId = () => {
+    try {
+      // Option 1: Check if user ID is stored directly in localStorage
+      const storedUserId = localStorage.getItem('userId');
+      if (storedUserId) {
+        return storedUserId;
+      }
+
+      // Option 2: Decode JWT token to get user ID
+      const jwtToken = localStorage.getItem('authToken');
+      if (jwtToken) {
+        const payload = JSON.parse(atob(jwtToken.split('.')[1]));
+        return payload.userId || payload.sub || payload.id;
+      }
+
+      // Option 3: Return null if no user ID found
+      return null;
+    } catch (error) {
+      console.error('Error getting current user ID:', error);
+      return null;
+    }
+  };
 
   // Fetch user data from API
   useEffect(() => {
     const fetchUserData = async () => {
       try {
         setIsLoading(true);
-   const jwtToken = localStorage.getItem('authToken');
         
-        const response = await fetch('https://24.101.103.87:8082/api/auth/user/92', {
+        // Get current user ID
+        const userId = getCurrentUserId();
+        if (!userId) {
+          throw new Error('User ID not found. Please login again.');
+        }
+        
+        setCurrentUserId(userId);
+        const jwtToken = localStorage.getItem('authToken');
+        
+        const response = await fetch(`https://24.101.103.87:8082/api/auth/user/${userId}`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${jwtToken}`,
@@ -36,14 +69,14 @@ const ProfilePage = () => {
         
         // Format data to match our component needs
         const formattedData = {
-          id: data.id,
-          userName: data.username,
-          email: data.email,
-          mobile: data.mobile,
-          role: data.authorities.map(auth => auth.authority.replace('ROLE_', '')),
-          createdAt: data.createdAt,
-          fullName: data.fullName,
-          active: data.active
+          id: data.id || 'N/A',
+          userName: data.username || 'N/A',
+          email: data.email || 'N/A',
+          mobile: data.mobile || 'N/A',
+          role: data.authorities ? data.authorities.map(auth => auth.authority.replace('ROLE_', '')) : ['N/A'],
+          createdAt: data.createdAt || 'N/A',
+          fullName: data.fullName || 'N/A',
+          active: data.active !== undefined ? data.active : 'N/A'
         };
         
         setUserData(formattedData);
@@ -62,16 +95,16 @@ const ProfilePage = () => {
         setError(err.message);
         setIsLoading(false);
         
-        // Use fallback data if API fails
+        // Use fallback data if API fails - all N/A
         const fallbackData = {
-          id: 92,
-          userName: "9209160612",
-          email: "",
-          mobile: "9209160612",
-          role: ["USER"],
-          createdAt: "2025-03-24T00:35:38",
-          fullName: "Aishwarya",
-          active: 1
+          id: 'N/A',
+          userName: 'N/A',
+          email: 'N/A',
+          mobile: 'N/A',
+          role: ['N/A'],
+          createdAt: 'N/A',
+          fullName: 'N/A',
+          active: 'N/A'
         };
         
         setUserData(fallbackData);
@@ -98,11 +131,32 @@ const ProfilePage = () => {
     });
   };
 
-  const handleSaveChanges = () => {
+  const handleSaveChanges = async () => {
     setSaveAnimation(true);
     
-    // Simulate API call to update profile
-    setTimeout(() => {
+    try {
+      const jwtToken = localStorage.getItem('authToken');
+      
+      // Make API call to update profile
+      const response = await fetch(`https://24.101.103.87:8082/api/auth/user/${currentUserId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${jwtToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          fullName: editData.fullName,
+          email: editData.email,
+          mobile: editData.mobile,
+          username: editData.userName
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Update failed: ${response.status}`);
+      }
+      
+      // Update successful
       setUserData(editData);
       setIsEditMode(false);
       setSaveAnimation(false);
@@ -112,7 +166,16 @@ const ProfilePage = () => {
       setTimeout(() => {
         setSaveSuccess(false);
       }, 3000);
-    }, 1000);
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      setSaveAnimation(false);
+      setError('Failed to update profile. Please try again.');
+      
+      // Reset error after 5 seconds
+      setTimeout(() => {
+        setError(null);
+      }, 5000);
+    }
   };
 
   const handleEditClick = () => {
@@ -132,15 +195,24 @@ const ProfilePage = () => {
     }, 300);
   };
 
+  const handleResetPassword = () => {
+    // Navigate to reset password page
+    window.location.href = '/reset-password';
+  };
+
   // Format date to be more readable
   const formatDate = (dateString) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+    if (!dateString || dateString === 'N/A') return 'N/A';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    } catch (error) {
+      return 'N/A';
+    }
   };
 
   // Loading state
@@ -155,27 +227,6 @@ const ProfilePage = () => {
     );
   }
 
-  // Error state
-  if (error && !userData) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-red-50 to-pink-50 flex items-center justify-center">
-        <div className="bg-white p-8 rounded-lg shadow-lg max-w-md">
-          <div className="flex items-center justify-center mb-4">
-            <XCircle size={48} className="text-red-600" />
-          </div>
-          <h2 className="text-2xl font-bold text-center text-gray-900 mb-2">Error Loading Profile</h2>
-          <p className="text-gray-600 text-center mb-6">{error}</p>
-          <button 
-            onClick={() => window.location.reload()}
-            className="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition-all duration-300"
-          >
-            Try Again
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-indigo-50 to-blue-100 transition-all duration-500 py-12">
       <div className="max-w-4xl mx-auto px-4">
@@ -183,6 +234,13 @@ const ProfilePage = () => {
           <div className="mb-4 bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded-md shadow-md flex items-center animate-fadeIn">
             <CheckCircle size={20} className="mr-2" />
             <span>Profile updated successfully!</span>
+          </div>
+        )}
+
+        {error && (
+          <div className="mb-4 bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md shadow-md flex items-center animate-fadeIn">
+            <XCircle size={20} className="mr-2" />
+            <span>{error}</span>
           </div>
         )}
         
@@ -193,7 +251,7 @@ const ProfilePage = () => {
               <div className="flex-shrink-0 mb-4 sm:mb-0">
                 <div className={`w-24 h-24 rounded-full bg-white p-1 flex items-center justify-center shadow-lg transition-all duration-700 transform ${animateProfile ? 'scale-100' : 'scale-90'}`}>
                   <div className="w-full h-full rounded-full bg-gradient-to-br from-pink-400 to-indigo-500 flex items-center justify-center overflow-hidden border-4 border-white">
-                    {userData?.fullName ? (
+                    {userData?.fullName && userData.fullName !== 'N/A' ? (
                       <span className="text-white text-2xl font-bold">
                         {userData.fullName.charAt(0).toUpperCase()}
                       </span>
@@ -204,7 +262,7 @@ const ProfilePage = () => {
                 </div>
               </div>
               <div className={`sm:ml-6 flex-1 text-center sm:text-left transition-all duration-700 delay-200 transform ${animateProfile ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0'}`}>
-                <h1 className="text-2xl sm:text-3xl font-bold text-white">{userData?.fullName}</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold text-white">{userData?.fullName || 'N/A'}</h1>
                 <div className="mt-2 flex flex-wrap justify-center sm:justify-start">
                   {userData?.role?.map((role, index) => (
                     <span key={index} className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-800 bg-opacity-30 text-white border border-indigo-300 transition-all duration-300 hover:bg-indigo-700 mr-2 mb-2">
@@ -212,42 +270,57 @@ const ProfilePage = () => {
                       {role}
                     </span>
                   ))}
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium mr-2 mb-2 transition-all duration-300 ${userData?.active ? 'bg-green-500 bg-opacity-30 text-white border border-green-300 hover:bg-green-400' : 'bg-red-500 bg-opacity-30 text-white border border-red-300 hover:bg-red-400'}`}>
-                    {userData?.active ? (
-                      <>
-                        <CheckCircle size={14} className="mr-1" />
-                        Active
-                      </>
-                    ) : (
-                      <>
-                        <XCircle size={14} className="mr-1" />
-                        Inactive
-                      </>
-                    )}
-                  </span>
+                  {userData?.active !== 'N/A' && (
+                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium mr-2 mb-2 transition-all duration-300 ${userData?.active ? 'bg-green-500 bg-opacity-30 text-white border border-green-300 hover:bg-green-400' : 'bg-red-500 bg-opacity-30 text-white border border-red-300 hover:bg-red-400'}`}>
+                      {userData?.active ? (
+                        <>
+                          <CheckCircle size={14} className="mr-1" />
+                          Active
+                        </>
+                      ) : (
+                        <>
+                          <XCircle size={14} className="mr-1" />
+                          Inactive
+                        </>
+                      )}
+                    </span>
+                  )}
                 </div>
                 <div className="mt-2 text-indigo-100 flex items-center justify-center sm:justify-start">
                   <Calendar size={16} className="mr-1" />
                   <span className="text-sm">Joined: {formatDate(userData?.createdAt)}</span>
                 </div>
               </div>
-              {!isEditMode ? (
-                <button 
-                  onClick={handleEditClick}
-                  className={`absolute top-6 right-6 p-2 text-white hover:text-indigo-200 transition-all duration-300 hover:bg-indigo-700 rounded-full transform hover:scale-110 ${animateProfile ? 'opacity-100' : 'opacity-0'}`}
-                  aria-label="Edit profile"
-                >
-                  <Edit2 size={20} />
-                </button>
-              ) : (
-                <button 
-                  onClick={handleCloseEdit}
-                  className="absolute top-6 right-6 p-2 text-white hover:text-red-200 transition-all duration-300 hover:bg-red-500 rounded-full transform hover:scale-110"
-                  aria-label="Cancel edit"
-                >
-                  <X size={20} />
-                </button>
-              )}
+              
+              {/* Action buttons */}
+              <div className="absolute top-6 right-6 flex gap-2">
+                {!isEditMode ? (
+                  <>
+                    <button 
+                      onClick={handleEditClick}
+                      className={`p-2 text-white hover:text-indigo-200 transition-all duration-300 hover:bg-indigo-700 rounded-full transform hover:scale-110 ${animateProfile ? 'opacity-100' : 'opacity-0'}`}
+                      aria-label="Edit profile"
+                    >
+                      <Edit2 size={20} />
+                    </button>
+                    <button 
+                      onClick={handleResetPassword}
+                      className={`p-2 text-white hover:text-yellow-200 transition-all duration-300 hover:bg-yellow-600 rounded-full transform hover:scale-110 ${animateProfile ? 'opacity-100' : 'opacity-0'}`}
+                      aria-label="Reset password"
+                    >
+                      <Key size={20} />
+                    </button>
+                  </>
+                ) : (
+                  <button 
+                    onClick={handleCloseEdit}
+                    className="p-2 text-white hover:text-red-200 transition-all duration-300 hover:bg-red-500 rounded-full transform hover:scale-110"
+                    aria-label="Cancel edit"
+                  >
+                    <X size={20} />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -281,7 +354,7 @@ const ProfilePage = () => {
                       </div>
                       <h3 className="ml-3 text-lg font-medium text-gray-800">Full Name</h3>
                     </div>
-                    <p className="text-gray-700 font-medium">{userData?.fullName || "Not Provided"}</p>
+                    <p className="text-gray-700 font-medium">{userData?.fullName || "N/A"}</p>
                   </div>
                   
                   <div className="bg-gradient-to-br from-white to-indigo-50 p-6 rounded-xl shadow-sm transition-all duration-300 hover:shadow-md">
@@ -291,7 +364,7 @@ const ProfilePage = () => {
                       </div>
                       <h3 className="ml-3 text-lg font-medium text-gray-800">Email</h3>
                     </div>
-                    <p className="text-gray-700 font-medium">{userData?.email || "Not Provided"}</p>
+                    <p className="text-gray-700 font-medium">{userData?.email || "N/A"}</p>
                   </div>
                   
                   <div className="bg-gradient-to-br from-white to-indigo-50 p-6 rounded-xl shadow-sm transition-all duration-300 hover:shadow-md">
@@ -301,18 +374,9 @@ const ProfilePage = () => {
                       </div>
                       <h3 className="ml-3 text-lg font-medium text-gray-800">Mobile</h3>
                     </div>
-                    <p className="text-gray-700 font-medium">{userData?.mobile || "Not Provided"}</p>
+                    <p className="text-gray-700 font-medium">{userData?.mobile || "N/A"}</p>
                   </div>
                   
-                  <div className="bg-gradient-to-br from-white to-indigo-50 p-6 rounded-xl shadow-sm transition-all duration-300 hover:shadow-md">
-                    <div className="flex items-center mb-4">
-                      <div className="bg-indigo-100 p-3 rounded-lg">
-                        <User size={20} className="text-indigo-600" />
-                      </div>
-                      <h3 className="ml-3 text-lg font-medium text-gray-800">Username</h3>
-                    </div>
-                    <p className="text-gray-700 font-medium">{userData?.userName || "Not Provided"}</p>
-                  </div>
                 </div>
               ) : (
                 <div>
@@ -327,7 +391,7 @@ const ProfilePage = () => {
                           type="text"
                           name="fullName"
                           id="fullName"
-                          value={editData?.fullName || ''}
+                          value={editData?.fullName === 'N/A' ? '' : editData?.fullName || ''}
                           onChange={handleInputChange}
                           className="pl-10 block w-full border border-gray-300 rounded-lg shadow-sm py-3 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm transition-all duration-300"
                         />
@@ -345,7 +409,7 @@ const ProfilePage = () => {
                           name="email"
                           id="email"
                           placeholder="your@email.com"
-                          value={editData?.email || ''}
+                          value={editData?.email === 'N/A' ? '' : editData?.email || ''}
                           onChange={handleInputChange}
                           className="pl-10 block w-full border border-gray-300 rounded-lg shadow-sm py-3 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm transition-all duration-300"
                         />
@@ -362,29 +426,14 @@ const ProfilePage = () => {
                           type="text"
                           name="mobile"
                           id="mobile"
-                          value={editData?.mobile || ''}
+                          value={editData?.mobile === 'N/A' ? '' : editData?.mobile || ''}
                           onChange={handleInputChange}
                           className="pl-10 block w-full border border-gray-300 rounded-lg shadow-sm py-3 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm transition-all duration-300"
                         />
                       </div>
                     </div>
                     
-                    <div className="transition-all duration-300 transform hover:translate-y-1">
-                      <label htmlFor="userName" className="block text-sm font-medium text-gray-700 mb-1">Username</label>
-                      <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <User size={16} className="text-gray-400" />
-                        </div>
-                        <input
-                          type="text"
-                          name="userName"
-                          id="userName"
-                          value={editData?.userName || ''}
-                          onChange={handleInputChange}
-                          className="pl-10 block w-full border border-gray-300 rounded-lg shadow-sm py-3 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm transition-all duration-300"
-                        />
-                      </div>
-                    </div>
+                    
                   </div>
 
                   <div className="mt-8 flex justify-end">
@@ -420,9 +469,9 @@ const ProfilePage = () => {
               Last updated: {new Date().toLocaleDateString()}
             </p>
             <div className="mt-2 flex justify-center gap-2">
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-blue-100 text-blue-800">
-                User ID: {userData?.id}
-              </span>
+              {/* <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-blue-100 text-blue-800">
+                User ID: {userData?.id || 'N/A'}
+              </span> */}
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-indigo-100 text-indigo-800">
                 Member since {formatDate(userData?.createdAt)}
               </span>

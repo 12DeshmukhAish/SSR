@@ -5,7 +5,7 @@ import { Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
 const styles = StyleSheet.create({
   page: {
     padding: 40,
-    fontSize: 16, // Increased from 12
+    fontSize: 16,
     fontFamily: 'Helvetica',
     backgroundColor: '#ffffff',
   },
@@ -49,14 +49,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logo: {
-    maxWidth: 100, // Increased from 80
-    maxHeight: 100, // Increased from 80
+    maxWidth: 100,
+    maxHeight: 100,
     marginBottom: 20,
     objectFit: 'contain',
   },
   // Company section
   companyName: {
-    fontSize: 22, // Increased from 16
+    fontSize: 22,
     fontWeight: 'bold',
     textAlign: 'center',
     textTransform: 'uppercase',
@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
     color: '#000',
   },
   companyAddress: {
-    fontSize: 14, // Increased from 10
+    fontSize: 14,
     textAlign: 'center',
     color: '#000',
     lineHeight: 1.4,
@@ -74,7 +74,7 @@ const styles = StyleSheet.create({
   // Estimate title section
   estimateTitle: {
     marginTop: 50,
-    marginBottom: 30, // Reduced from 60
+    marginBottom: 30,
     borderStyle: 'solid',
     borderWidth: 2,
     borderColor: '#000',
@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
     minWidth: '40%',
   },
   estimateTitleText: {
-    fontSize: 24, // Increased from 18
+    fontSize: 24,
     fontWeight: 'bold',
     textAlign: 'center',
     color: '#2563eb',
@@ -90,19 +90,19 @@ const styles = StyleSheet.create({
   },
   // Work name section
   workNameContainer: {
-    marginBottom: 15, // Reduced from 30
+    marginBottom: 15,
     alignItems: 'center',
   },
   workNameLabel: {
-    fontSize: 20, // Increased from 16
+    fontSize: 20,
     fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 8, // Reduced from 15
+    marginBottom: 8,
     color: '#000',
     letterSpacing: 2,
   },
   workName: {
-    fontSize: 20, // Increased from 16
+    fontSize: 20,
     fontWeight: 'bold',
     textAlign: 'center',
     color: '#dc2626',
@@ -110,23 +110,23 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     lineHeight: 1.3,
     maxWidth: '90%',
-    marginBottom: 8, // Reduced from 20
+    marginBottom: 8,
   },
   clientName: {
-    fontSize: 20, // Increased from 16
+    fontSize: 20,
     fontWeight: 'bold',
     textAlign: 'center',
     color: '#dc2626',
     textTransform: 'uppercase',
     letterSpacing: 1,
-    marginBottom: 8, // Reduced from 40
+    marginBottom: 8,
   },
   // Property details
   propertyDetails: {
-    fontSize: 20, // Increased from 16
+    fontSize: 20,
     textAlign: 'center',
     color: '#000',
-    marginBottom: 30, // Reduced from 50
+    marginBottom: 30,
     lineHeight: 1.4,
   },
   // Cost section
@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   estimateCostText: {
-    fontSize: 20, // Increased from 16
+    fontSize: 20,
     fontWeight: 'bold',
     textAlign: 'center',
     color: '#000',
@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
 
 // Format Indian currency with lakhs format
 const formatIndianCurrency = (amount) => {
-  if (!amount) return '0.00';
+  if (!amount) return '';
   
   const numAmount = parseFloat(amount);
   const lakhs = (numAmount / 100000).toFixed(2);
@@ -170,6 +170,15 @@ const formatIndianCurrency = (amount) => {
   return `${formattedWholePart}.${formattedDecimalPart}`;
 };
 
+// Helper function to check if a value is empty or undefined
+const isEmpty = (value) => {
+  if (value === null || value === undefined) return true;
+  if (typeof value === 'string') return value.trim() === '';
+  if (typeof value === 'number') return false; // Numbers are not empty
+  if (Array.isArray(value)) return value.length === 0;
+  if (typeof value === 'object') return Object.keys(value).length === 0;
+  return !value; // For boolean and other types
+};
 // Main Cover Page PDF Component
 export const CoverPagePDF = ({ 
   companyLogo,
@@ -187,66 +196,84 @@ export const CoverPagePDF = ({
       <View style={styles.outerBorder} />
       <View style={styles.middleBorder} />
       
-      
       {/* Content Container */}
       <View style={styles.contentContainer}>
-        {/* Company Logo */}
-        <View style={styles.logoContainer}>
-          {companyLogo && (
-            <Image 
-              style={styles.logo} 
-              src={companyLogo}
-            />
-          )}
-          
-          {/* Company Name */}
-          <Text style={styles.companyName}>
-            {companyName }
-          </Text>
-          
-          {/* Company Address */}
-          <Text style={styles.companyAddress}>
-            {companyAddress }
-          </Text>
-        </View>
+        {/* Company Logo and Details - Only show if company name exists */}
+        {!isEmpty(companyName) && (
+          <View style={styles.logoContainer}>
+            {companyLogo && (
+              <Image 
+                style={styles.logo} 
+                src={companyLogo}
+              />
+            )}
+            
+            {/* Company Name */}
+            <Text style={styles.companyName}>
+              {companyName}
+            </Text>
+            
+            {/* Company Address - Only show if exists */}
+            {!isEmpty(companyAddress) && (
+              <Text style={styles.companyAddress}>
+                {companyAddress}
+              </Text>
+            )}
+          </View>
+        )}
         
-        {/* Estimate Title */}
-        <View style={styles.estimateTitle}>
-          <Text style={styles.estimateTitleText}>
-            ESTIMATE
-          </Text>
-        </View>
+        {/* Estimate Title - Always show if any content exists */}
+        {(!isEmpty(companyName) || !isEmpty(workName) || !isEmpty(clientName)) && (
+          <View style={styles.estimateTitle}>
+            <Text style={styles.estimateTitleText}>
+              ESTIMATE
+            </Text>
+          </View>
+        )}
 
-        {/* Work Name Section */}
-        <View style={styles.workNameContainer}>
-          <Text style={styles.workNameLabel}>
-             NAME OF WORK 
-          </Text>
-          
-          <Text style={styles.workName}>
-            {workName }
-          </Text>
-          
-          <Text style={styles.clientName}>
-            FOR
-          </Text>
-          
-          <Text style={styles.clientName}>
-            {clientName }
-          </Text>
-        </View>
+        {/* Work Name Section - Only show if workName exists */}
+        {!isEmpty(workName) && (
+          <View style={styles.workNameContainer}>
+            <Text style={styles.workNameLabel}>
+              NAME OF WORK 
+            </Text>
+            
+            <Text style={styles.workName}>
+              {workName}
+            </Text>
+            
+            {/* Only show "FOR" and client name if client name exists */}
+            {!isEmpty(clientName) && (
+              <>
+                <Text style={styles.clientName}>
+                  FOR
+                </Text>
+                
+                <Text style={styles.clientName}>
+                  {clientName}
+                </Text>
+              </>
+            )}
+          </View>
+        )}
 
-        {/* Property Details */}
-        <Text style={styles.propertyDetails}>
-          Property no {propertyNo || 'Plot No. 123'}, At {propertyAddress || '456 Property Street, Location, City'}
-        </Text>
-
-        {/* Estimate Cost */}
-        <View style={styles.estimateCostContainer}>
-          <Text style={styles.estimateCostText}>
-            ESTIMATE COST :- {formatIndianCurrency(estimateCost) || '15,00,000'} LAKHS
+        {/* Property Details - Only show if propertyNo or propertyAddress exists */}
+        {(!isEmpty(propertyNo) || !isEmpty(propertyAddress)) && (
+          <Text style={styles.propertyDetails}>
+            {!isEmpty(propertyNo) && `Property no ${propertyNo}`}
+            {!isEmpty(propertyNo) && !isEmpty(propertyAddress) && ', '}
+            {!isEmpty(propertyAddress) && `At ${propertyAddress}`}
           </Text>
-        </View>
+        )}
+
+        {/* Estimate Cost - Only show if cost exists */}
+        {!isEmpty(estimateCost) && formatIndianCurrency(estimateCost) && (
+          <View style={styles.estimateCostContainer}>
+            <Text style={styles.estimateCostText}>
+              ESTIMATE COST :- {formatIndianCurrency(estimateCost)} LAKHS
+            </Text>
+          </View>
+        )}
       </View>
     </Page>
   );

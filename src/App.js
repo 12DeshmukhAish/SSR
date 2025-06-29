@@ -22,7 +22,7 @@ import CoverPageGenerator from "./components/Cover";
 import ConstructionEstimateComponent from "./components/ConstructionEstimate";
 import TermsAndConditions from "./components/TermandCondition";
 import PrivacyPolicy from "./components/Privacy";
-
+import ResetPasswordPage from "./components/ResetPassword";
 function Layout({ children }) {
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -42,6 +42,7 @@ function App() {
         <Route path="/signup" element={<SignupForm />} />
         <Route path="/signin" element={<SignInPage />} />
         <Route path="/forgotpwd" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage/>} />
           <Route
           path="/policy"
           element={

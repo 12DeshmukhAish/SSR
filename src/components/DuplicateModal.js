@@ -1,40 +1,49 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 
-const DuplicateModal = ({ workorderId, onClose, url = "https://24.101.103.87:8082/api" }) => {
+const DuplicateModal = ({ 
+  workorderId, 
+  onClose, 
+  onDuplicate,          // Add this
+  workorderRecord,      // Add this
+  url = "https://24.101.103.87:8082/api" 
+}) => {
   const [revisions, setRevisions] = useState([]);
   const [selectedRevisionId, setSelectedRevisionId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState(null);
 
-  // Get authentication token from localStorage (matching your JS code)
+  // Get authentication token from localStorage
   const token = localStorage.getItem("authToken");
+  const userId = localStorage.getItem("Id");
 
   useEffect(() => {
-    // Debug localStorage
-    console.log("All localStorage keys:", Object.keys(localStorage));
-    console.log("authToken:", localStorage.getItem("authToken"));
-    console.log("Props:", { workorderId, url });
-    
+    console.log("DuplicateModal mounted with:", { workorderId, url, hasToken: !!token, userId });
+
     if (workorderId && token) {
       fetchRevisions();
     } else {
       console.warn("Missing required data:", { workorderId, token: !!token });
+      if (!token) {
+        setError("Authentication token not found. Please log in again.");
+      }
     }
-  }, [workorderId, token]);
+  }, [workorderId, token, url]);
 
   const fetchRevisions = async () => {
-    if (!workorderId || !token) return;
-    
+    if (!workorderId || !token) {
+      setError("Missing authentication or work order ID");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
-      console.log("Duplicate clicked for Record ID:", workorderId);
+      console.log("Fetching revisions for Record ID:", workorderId);
       console.log("API URL:", `${url}/workorder-revisions/ByWorkorderId/${workorderId}`);
-      console.log("Token:", token ? `${token.substring(0, 20)}...` : 'No token');
-      
+
       const response = await fetch(`${url}/workorder-revisions/ByWorkorderId/${workorderId}`, {
         method: "GET",
         headers: {
@@ -44,27 +53,14 @@ const DuplicateModal = ({ workorderId, onClose, url = "https://24.101.103.87:808
       });
 
       console.log("Response status:", response.status);
-      console.log("Response headers:", response.headers);
-
-      // Get response text first to see what we're actually receiving
-      const responseText = await response.text();
-      console.log("Raw response:", responseText);
 
       if (!response.ok) {
-        throw new Error(`HTTP Error! Status: ${response.status} - ${responseText}`);
+        const errorText = await response.text();
+        throw new Error(`HTTP Error! Status: ${response.status} - ${errorText}`);
       }
 
-      // Try to parse as JSON
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error("JSON Parse Error:", parseError);
-        console.error("Response was:", responseText);
-        throw new Error(`Invalid JSON response: ${responseText.substring(0, 100)}...`);
-      }
-
-      console.log("API Response (parsed):", data);
+      const data = await response.json();
+      console.log("API Response:", data);
 
       // Ensure data is an array
       if (!Array.isArray(data)) {
@@ -72,13 +68,18 @@ const DuplicateModal = ({ workorderId, onClose, url = "https://24.101.103.87:808
         throw new Error("API returned invalid data format");
       }
 
-      // Filter revisions exactly like your JavaScript code
+      // Filter revisions exactly like the JavaScript code
       const filteredRevisions = data.filter(rev => 
         rev && rev.deletedFlag && rev.deletedFlag.toLowerCase() === "no"
       );
 
       console.log("Filtered revisions:", filteredRevisions);
       setRevisions(filteredRevisions);
+
+      // Auto-select first revision if only one exists
+      if (filteredRevisions.length === 1) {
+        setSelectedRevisionId(filteredRevisions[0].id);
+      }
 
     } catch (err) {
       console.error("Error fetching revisions:", err);
@@ -88,48 +89,49 @@ const DuplicateModal = ({ workorderId, onClose, url = "https://24.101.103.87:808
     }
   };
 
-  const handleConfirm = async () => {
-    if (!selectedRevisionId) {
-      alert("Please select a revision!");
-      return;
+
+// Replace the handleConfirm function in DuplicateModal.js with this:
+// Replace the handleConfirm function in DuplicateModal.js with this:
+const handleConfirm = async () => {
+  if (!selectedRevisionId) {
+    alert("Please select a revision!");
+    return;
+  }
+
+  if (!workorderId) {
+    alert("Work order ID is missing!");
+    return;
+  }
+
+  setCreating(true);
+
+  try {
+    console.log("Starting duplication with:", { workorderId, selectedRevisionId });
+
+    // Find the selected revision data
+    const selectedRevision = revisions.find(rev => rev.id === selectedRevisionId);
+    
+    if (!selectedRevision) {
+      throw new Error("Selected revision not found");
     }
 
-    setCreating(true);
+    // Close modal first
+    onClose();
 
-    try {
-      // Store values in localStorage exactly like your JS code
-      localStorage.setItem("recordId", workorderId.toString());
-      localStorage.setItem("revisionId", selectedRevisionId.toString());
-
-      // Create form data to match your PHP submission
-      const formData = new FormData();
-      formData.append("recordId", workorderId);
-      formData.append("revisionId", selectedRevisionId);
-
-      // Submit to duplicateestimate.php like your JS code
-      const response = await fetch("duplicateestimate.php", {
-        method: "POST",
-        body: formData
-      });
-
-      if (response.ok) {
-        // If successful, redirect or handle success
-        console.log("Duplicate request submitted successfully");
-        onClose();
-        
-        // Optional: Navigate to the new page if needed
-        // window.location.href = response.url;
-      } else {
-        throw new Error(`Server error: ${response.status}`);
-      }
-
-    } catch (err) {
-      console.error("Error creating duplicate:", err);
-      alert("Error creating duplicate. Please try again.");
-    } finally {
-      setCreating(false);
+    // Call the actual handleDuplicate function that does the real duplication
+    if (onDuplicate && workorderRecord) {
+      await onDuplicate(workorderId, selectedRevision, workorderRecord);
+    } else {
+      throw new Error("onDuplicate function or workorderRecord not provided");
     }
-  };
+
+  } catch (err) {
+    console.error("Error during duplication:", err);
+    alert(`Error: ${err.message}`);
+  } finally {
+    setCreating(false);
+  }
+};
 
   const handleClose = () => {
     setSelectedRevisionId(null);
@@ -137,24 +139,31 @@ const DuplicateModal = ({ workorderId, onClose, url = "https://24.101.103.87:808
     onClose();
   };
 
-  // Show loading or error states
+  const handleRetry = () => {
+    setError(null);
+    fetchRevisions();
+  };
+
+  // Show authentication error
   if (!token) {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg shadow-lg w-full max-w-md mx-4">
-          <div className="flex items-center justify-between p-4 border-b">
-            <h2 className="text-xl font-semibold">Select Revision</h2>
-            <button onClick={handleClose} className="p-1 rounded-full hover:bg-gray-100">
+        <div className="bg-white rounded-lg p-6 w-96 max-w-full mx-4">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold">Authentication Required</h3>
+            <button onClick={handleClose} className="text-gray-500 hover:text-gray-700">
               <X size={20} />
             </button>
           </div>
-          <div className="p-4">
-            <div className="py-4 text-center text-red-600">
-              <p>Authentication token not found. Please log in again.</p>
-            </div>
-          </div>
-          <div className="flex justify-end gap-2 p-4 border-t">
-            <button onClick={handleClose} className="px-4 py-2 border rounded-md hover:bg-gray-100">
+          
+          <p className="text-red-600 mb-4">Authentication token not found.</p>
+          <p className="text-gray-600 mb-6">Please log in again to continue.</p>
+          
+          <div className="flex justify-end">
+            <button
+              onClick={handleClose}
+              className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+            >
               Close
             </button>
           </div>
@@ -165,86 +174,86 @@ const DuplicateModal = ({ workorderId, onClose, url = "https://24.101.103.87:808
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-lg w-full max-w-md mx-4">
-        <div className="flex items-center justify-between p-4 border-b">
-          <h2 className="text-xl font-semibold">Select Revision</h2>
-          <button
-            onClick={handleClose}
-            className="p-1 rounded-full hover:bg-gray-100 transition-colors"
-            disabled={creating}
-          >
+      <div className="bg-white rounded-lg p-6 w-96 max-w-full mx-4">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold">Select Revision to Duplicate</h3>
+          <button onClick={handleClose} className="text-gray-500 hover:text-gray-700">
             <X size={20} />
           </button>
         </div>
+        
+        <div className="mb-4">
+          <p className="text-sm text-gray-600">Record ID: {workorderId}</p>
+        </div>
 
-        <div className="p-4">
-          <p className="mb-4">
-            <strong>Record ID:</strong> <span>{workorderId}</span>
-          </p>
-
-          <div className="revision-container">
-            {loading ? (
-              <div className="py-4 text-center">
-                <p>Loading revisions...</p>
-              </div>
-            ) : error ? (
-              <div className="py-4 text-center text-red-600">
-                <p>{error}</p>
-                <button 
-                  onClick={fetchRevisions}
-                  className="mt-2 text-blue-600 hover:text-blue-800 text-sm underline"
-                >
-                  Try Again
-                </button>
-              </div>
-            ) : revisions.length === 0 ? (
-              <div className="py-4 text-center">
-                <p>No revisions available.</p>
-              </div>
-            ) : (
-              <div className="border rounded-md mb-4 max-h-60 overflow-y-auto">
-                {revisions.map(rev => (
-                  <div
-                    key={rev.id}
-                    className="revision-row flex items-center p-3 border-b last:border-b-0 hover:bg-gray-50"
-                  >
+        <div className="mb-6">
+          {loading ? (
+            <div className="text-center py-4">
+              <p>Loading revisions...</p>
+            </div>
+          ) : error ? (
+            <div className="text-center py-4">
+              <h4 className="text-red-600 font-medium mb-2">Error loading revisions</h4>
+              <p className="text-red-500 text-sm mb-4">{error}</p>
+              <button
+                onClick={handleRetry}
+                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+              >
+                Try Again
+              </button>
+            </div>
+          ) : revisions.length === 0 ? (
+            <div className="text-center py-4">
+              <p>No revisions available for duplication.</p>
+            </div>
+          ) : (
+            <div>
+             
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {revisions.map((rev, index) => (
+                  <label key={rev.id || index} className="flex items-start cursor-pointer p-2 hover:bg-gray-50 rounded">
                     <input
                       type="radio"
-                      id={`rev-${rev.id}`}
                       name="revision"
                       value={rev.id}
                       checked={selectedRevisionId === rev.id}
                       onChange={() => setSelectedRevisionId(rev.id)}
-                      className="mr-3"
+                      className="mr-3 text-blue-600 focus:ring-blue-500"
                       disabled={creating}
                     />
-                    <label
-                      htmlFor={`rev-${rev.id}`}
-                      className="flex-grow cursor-pointer"
-                    >
-                      {rev.reviseNumber}
-                    </label>
-                  </div>
+                    <div>
+                      <div className="font-medium">
+                        Revision {rev.reviseNumber}
+                        {rev.description && (
+                          <span className="font-normal text-gray-600"> ({rev.description})</span>
+                        )}
+                      </div>
+                    </div>
+                  </label>
                 ))}
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
-        <div className="modal-footer flex justify-end gap-2 p-4 border-t">
-          <button
-            onClick={handleConfirm}
-            className="btn btn-primary px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={!selectedRevisionId || loading || creating}
-          >
-            {creating ? 'Processing...' : 'Confirm'}
-          </button>
+        <div className="flex justify-end space-x-3">
           <button
             onClick={handleClose}
-            className="btn btn-danger px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+            className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
             disabled={creating}
           >
             Cancel
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={!selectedRevisionId || creating || loading}
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+          >
+            {creating ? (
+              <span>Processing...</span>
+            ) : (
+              'Confirm Duplicate'
+            )}
           </button>
         </div>
       </div>

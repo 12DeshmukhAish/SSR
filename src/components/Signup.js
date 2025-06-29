@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast, ToastContainer } from 'react-toastify';
@@ -99,7 +101,7 @@ const SignupPage = () => {
     confirmPassword: ''
   });
   
-  // Track registration step
+   // Track registration step
   const [step, setStep] = useState(0); // 0: initial, 1: contact info, 2: password, 3: verification sent
   const [contactMethod, setContactMethod] = useState('mobile'); // 'email' or 'mobile'
   const [loading, setLoading] = useState(false);
@@ -108,9 +110,15 @@ const SignupPage = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
-    const [modalContent, setModalContent] = useState(null);
+  const [otp, setOtp] = useState(['', '', '', '', '', '']); // For 6-digit OTP
+  const [otpTimer, setOtpTimer] = useState(600); // 10 minutes in seconds
+  const [canResendOtp, setCanResendOtp] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [modalContent, setModalContent] = useState(null);
   const [modalType, setModalType] = useState('');
+  const [userValidationBypass, setUserValidationBypass] = useState(false); // Track if we bypassed validation
   const navigate = useNavigate();
+
 
   // Handle input changes with immediate validation
   const handleChange = (e) => {
@@ -128,9 +136,25 @@ const SignupPage = () => {
       }));
     }
   };
-
+ useEffect(() => {
+    let interval = null;
+    if (step === 3 && otpTimer > 0) {
+      interval = setInterval(() => {
+        setOtpTimer(timer => {
+          if (timer <= 1) {
+            setCanResendOtp(true);
+            return 0;
+          }
+          return timer - 1;
+        });
+      }, 1000);
+    } else if (otpTimer === 0) {
+      setCanResendOtp(true);
+    }
+    return () => clearInterval(interval);
+  }, [step, otpTimer]);
   // Handle field blur for immediate validation
-  const handleBlur = (e) => {
+   const handleBlur = (e) => {
     const { name, value } = e.target;
     validateField(name, value);
   };
@@ -194,14 +218,17 @@ const SignupPage = () => {
     return fieldError === '';
   };
 
-  // Handle contact method selection
-  const handleContactMethod = (method) => {
+    // Handle contact method selection
+    const handleContactMethod = (method) => {
     setContactMethod(method);
     setStep(1);
     setErrors({}); // Clear all errors when changing method
+    setUserValidationBypass(false); // Reset bypass flag
   };
 
-  // Validate current step
+
+  
+   // Validate current step
   const validateStep = () => {
     let isValid = true;
     const newErrors = {};
@@ -225,7 +252,7 @@ const SignupPage = () => {
         }
       }
 
-      if (contactMethod === 'mobile') {
+       if (contactMethod === 'mobile') {
         if (!formData.mobile.trim()) {
           newErrors.mobile = 'Mobile number is required';
           isValid = false;
@@ -256,7 +283,7 @@ const SignupPage = () => {
     setErrors(newErrors);
 
     // Show toast for first error found
-    if (!isValid) {
+       if (!isValid) {
       const firstError = Object.values(newErrors)[0];
       toast.error(firstError, {
         position: "top-right",
@@ -268,7 +295,7 @@ const SignupPage = () => {
     return isValid;
   };
   
-  // Handle continue button click
+ // Handle continue button click
   const handleContinue = async () => {
     if (!validateStep()) return;
 
@@ -284,7 +311,7 @@ const SignupPage = () => {
         
         // Check response data value
         if (response.data === 1) {
-          // User already exists
+          // User already exists - this is a definitive block
           const errorMsg = 'This email or mobile is already registered.';
           setErrors({ [contactMethod]: errorMsg });
           toast.error('This account already exists. Please try signing in instead.', {
@@ -292,70 +319,78 @@ const SignupPage = () => {
             autoClose: 4000,
             style: { background: "#EF4444", color: "#fff" }
           });
+          setUserValidationBypass(false);
         } else if (response.data === 0) {
           // User does not exist, proceed to next step
           setStep(step + 1);
-          setErrors({}); // Clear any previous errors
+          setErrors({});
+          setUserValidationBypass(false);
         } else {
-          // Unexpected response, but proceed anyway
+          // Unexpected response, proceed with caution
           console.log('Unexpected response, proceeding to next step');
           setStep(step + 1);
           setErrors({});
+          setUserValidationBypass(true); // Mark that we bypassed normal validation
         }
         
       } catch (err) {
         console.log('User validation API Error:', err.response?.status, err.response?.data);
         
-        // Handle different error scenarios
+        // Handle different error scenarios more conservatively
         if (err.response?.status === 400) {
-          // 400 error - check the error message
           const errorMessage = err.response?.data?.message || err.response?.data || '';
           
           if (errorMessage.toLowerCase().includes('username is not present') || 
               errorMessage.toLowerCase().includes('not present') ||
               errorMessage.toLowerCase().includes('user not found') ||
               errorMessage.toLowerCase().includes('not found')) {
-            // Username not present means user doesn't exist, proceed to next step
+            // Username not present means user doesn't exist
             console.log('Username not present, proceeding to next step');
             setStep(step + 1);
             setErrors({});
+            setUserValidationBypass(false);
           } else {
-            // Other 400 error
+            // Other 400 error - show error but allow bypass after delay
             setErrors({ [contactMethod]: errorMessage || 'Error validating user' });
-            toast.error(errorMessage || 'Error checking user availability', {
+            toast.error(errorMessage || 'Error checking user availability. You can still proceed.', {
               position: "top-right",
               autoClose: 4000,
               style: { background: "#EF4444", color: "#fff" }
             });
+            // Allow bypass after showing error
+            setTimeout(() => {
+              if (errors[contactMethod]) {
+                setStep(step + 1);
+                setErrors({});
+                setUserValidationBypass(true);
+              }
+            }, 3000);
           }
         } else if (err.response?.status === 404) {
-          // 404 means user not found, proceed to next step
+          // 404 means user not found
           console.log('User not found (404), proceeding to next step');
           setStep(step + 1);
           setErrors({});
-        } else if (err.code === 'ECONNABORTED' || err.message.includes('timeout')) {
-          // Timeout error
-          const errorMsg = 'Request timeout. Please try again.';
-          setErrors({ general: errorMsg });
-          toast.error('Request timeout. Please check your connection and try again.', {
-            position: "top-right",
-            autoClose: 4000,
-            style: { background: "#EF4444", color: "#fff" }
-          });
-        } else if (err.code === 'ERR_NETWORK') {
-          // Network error
-          const errorMsg = 'Network error. Please check your connection.';
-          setErrors({ general: errorMsg });
-          toast.error('Network error. Please check your internet connection.', {
-            position: "top-right",
-            autoClose: 4000,
-            style: { background: "#EF4444", color: "#fff" }
-          });
+          setUserValidationBypass(false);
         } else {
-          // For any other error, assume user doesn't exist and proceed
-          console.log('Unknown error, assuming user is new and proceeding');
-          setStep(step + 1);
-          setErrors({});
+          // For network errors or other issues, allow to proceed after showing warning
+          const errorType = err.code === 'ECONNABORTED' || err.message.includes('timeout') ? 'timeout' : 'network';
+          const errorMsg = errorType === 'timeout' ? 
+            'Request timeout. Please check your connection.' : 
+            'Network error. Please check your connection.';
+          
+          toast.warning(`${errorMsg} Proceeding with signup...`, {
+            position: "top-right",
+            autoClose: 4000,
+            style: { background: "#F59E0B", color: "#fff" }
+          });
+          
+          // Proceed after brief delay
+          setTimeout(() => {
+            setStep(step + 1);
+            setErrors({});
+            setUserValidationBypass(true);
+          }, 2000);
         }
       } finally {
         setLoading(false);
@@ -366,155 +401,318 @@ const SignupPage = () => {
     }
   };
   
-  // Handle form submission
-  const handleSubmit = async (e) => {
+  
+  
+   const handleSubmit = async (e) => {
     e.preventDefault();
-
+    
     // Validate final step
     if (!validateStep()) return;
-
+    
     setLoading(true);
     setErrors({});
-
+    
     try {
-      // Prepare the request payload according to API schema
       const requestPayload = {
         userName: contactMethod === 'email' ? formData.email : formData.mobile,
         fullName: formData.userName,
         password: formData.password,
-        role: ["user"], // Array of strings as expected by API
-        userId: 0, // Default value
-        isActive: 0, // Default value
-        createdAt: new Date().toISOString(), // Current timestamp
-        referredBy: 0, // Default value
+        role: ["user"]
       };
-
+      
       // Add email or mobile based on contact method
       if (contactMethod === 'email') {
         requestPayload.email = formData.email;
-        // Don't include mobile field if registering with email
+        requestPayload.mobile = formData.mobile || "";
       } else {
         requestPayload.mobile = formData.mobile;
-        // Don't include email field if registering with mobile
+        requestPayload.email = formData.email || "";
       }
-
+      
+      // Only add optional fields if they have meaningful values
+      if (formData.referralCode && formData.referralCode.trim()) {
+        requestPayload.referralCode = formData.referralCode.trim();
+      }
+      
       console.log('Sending signup request with payload:', requestPayload);
-
+      
       const response = await apiClient.post('/auth/signup', requestPayload);
       
       // Successful signup
       if (response.status === 201 || response.status === 200) {
-        if (contactMethod === 'email') {
-          // For email signup - show verification message
-          setStep(3); // Move to verification step
-          toast.success('Account created successfully!', {
-            position: "top-right",
-            autoClose: 3000,
-            style: {
-              background: "#10B981",
-              color: "#fff"
-            }
-          });
-          
-          // Show email verification toast after a delay
-          setTimeout(() => {
-            toast.info('📧 Please check your email and verify your account within 10 minutes to complete registration.', {
-              position: "top-center",
-              autoClose: 8000,
-              hideProgressBar: false,
-              closeOnClick: true,
-              pauseOnHover: true,
-              draggable: true,
-              style: {
-                background: "#3B82F6",
-                color: "#fff",
-                fontSize: "14px"
-              }
-            });
-          }, 1000);
-        } else {
-          // For mobile signup - direct success and redirect
-          toast.success('Account created successfully!', {
-            position: "top-right",
-            autoClose: 3000,
-            style: {
-              background: "#10B981",
-              color: "#fff"
-            }
-          });
-          
-          // Redirect to login for mobile users
-          setTimeout(() => {
-            navigate('/signin');
-          }, 2000);
-        }
+        toast.success('Account created successfully! OTP has been sent.', {
+          position: "top-right",
+          autoClose: 3000,
+          style: { background: "#10B981", color: "#fff" }
+        });
+        
+        // Move to OTP verification step
+        setStep(3);
+        setOtpTimer(600);
+        setCanResendOtp(false);
+        setOtpSent(true);
       }
     } catch (err) {
       console.error('Signup Error:', err);
-      console.error('Error response data:', err.response?.data);
       
-      // More detailed error handling
       if (err.response) {
-        // The request was made and the server responded with a status code
-        // that falls out of the range of 2xx
-        const errorData = err.response.data;
+        const { status, data } = err.response;
         let errorMessage = 'Signup failed. Please try again.';
         
-        // Handle different error response formats
-        if (typeof errorData === 'string') {
-          errorMessage = errorData;
-        } else if (errorData?.message) {
-          errorMessage = errorData.message;
-        } else if (errorData?.error) {
-          errorMessage = errorData.error;
-        } else if (errorData?.errors && Array.isArray(errorData.errors)) {
-          errorMessage = errorData.errors.join(', ');
+        console.error('Error response status:', status);
+        console.error('Error response data:', data);
+        
+        switch (status) {
+          case 400:
+            if (typeof data === 'string') {
+              errorMessage = data;
+            } else if (data?.message) {
+              errorMessage = data.message;
+            } else if (data?.error) {
+              errorMessage = data.error;
+            } else {
+              errorMessage = 'Invalid data provided. Please check your information.';
+            }
+            break;
+            
+          case 409:
+            errorMessage = 'An account with this email or mobile already exists.';
+            // If we get 409, go back to step 1 to re-validate
+            setStep(1);
+            break;
+            
+          case 422:
+            errorMessage = 'Please check your input data and try again.';
+            break;
+            
+          case 500:
+            errorMessage = 'Server error occurred. Please try again later.';
+            break;
+            
+          default:
+            if (typeof data === 'string') {
+              errorMessage = data;
+            } else if (data?.message) {
+              errorMessage = data.message;
+            }
         }
         
         setErrors({ general: errorMessage });
         toast.error(errorMessage, {
           position: "top-right",
           autoClose: 5000,
-          style: {
-            background: "#EF4444",
-            color: "#fff"
-          }
+          style: { background: "#EF4444", color: "#fff" }
         });
+        
       } else if (err.request) {
-        // The request was made but no response was received
-        const errorMessage = 'No response from server. Check your network connection.';
+        const errorMessage = 'No response from server. Please check your network connection.';
         setErrors({ general: errorMessage });
         toast.error(errorMessage, {
           position: "top-right",
           autoClose: 5000,
-          style: {
-            background: "#EF4444",
-            color: "#fff"
-          }
+          style: { background: "#EF4444", color: "#fff" }
         });
       } else {
-        // Something happened in setting up the request that triggered an Error
-        const errorMessage = 'Error setting up the request';
+        const errorMessage = 'Network error occurred. Please try again.';
         setErrors({ general: errorMessage });
         toast.error(errorMessage, {
           position: "top-right",
           autoClose: 5000,
-          style: {
-            background: "#EF4444",
-            color: "#fff"
-          }
+          style: { background: "#EF4444", color: "#fff" }
         });
       }
     } finally {
       setLoading(false);
     }
   };
-const openModal = (type) => {
+
+  // Modal handlers
+  const openModal = (type) => {
     setModalContent(type);
   };
 
   const closeModal = () => {
     setModalContent(null);
+  };
+
+
+ const verifyOTP = async () => {
+    const otpString = otp.join('');
+    
+    if (otpString.length !== 6) {
+      toast.error('Please enter all 6 digits of the OTP', {
+        position: "top-right",
+        autoClose: 3000,
+        style: { background: "#EF4444", color: "#fff" }
+      });
+      return;
+    }
+
+    setLoading(true);
+    
+    try {
+      // Use the unified phoneOrEmail parameter for both email and mobile
+      const phoneOrEmail = contactMethod === 'email' ? formData.email : formData.mobile;
+      
+      // Use POST request with query parameters as per API documentation
+      const response = await apiClient.post(`/otp/verify?phoneOrEmail=${encodeURIComponent(phoneOrEmail)}&otp=${otpString}`, {});
+
+      console.log('OTP verification response:', response.data);
+
+      // Success response
+      toast.success('OTP verified successfully!', {
+        position: "top-right",
+        autoClose: 3000,
+        style: { background: "#10B981", color: "#fff" }
+      });
+      
+      // Redirect to login after successful verification
+      setTimeout(() => {
+        navigate('/signin');
+      }, 2000);
+
+    } catch (err) {
+      console.error('OTP verification error:', err);
+      
+      let errorMessage = 'Invalid OTP. Please try again.';
+      
+      // Handle specific error responses
+      if (err.response) {
+        const { status, data } = err.response;
+        
+        switch (status) {
+          case 400:
+            errorMessage = 'Invalid OTP format or expired OTP.';
+            break;
+          case 404:
+            errorMessage = 'OTP not found. Please request a new OTP.';
+            break;
+          case 429:
+            errorMessage = 'Too many attempts. Please try again later.';
+            break;
+          case 401:
+            errorMessage = 'OTP has expired. Please request a new one.';
+            break;
+          case 422:
+            errorMessage = 'Invalid OTP. Please check and try again.';
+            break;
+          default:
+            if (typeof data === 'string') {
+              errorMessage = data;
+            } else if (data?.message) {
+              errorMessage = data.message;
+            }
+        }
+      } else if (err.request) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else {
+        errorMessage = 'An unexpected error occurred. Please try again.';
+      }
+      
+      toast.error(errorMessage, {
+        position: "top-right",
+        autoClose: 4000,
+        style: { background: "#EF4444", color: "#fff" }
+      });
+      
+      // Clear OTP input on error to allow re-entry
+      setOtp(['', '', '', '', '', '']);
+      
+      // Focus on first OTP input for convenience
+      const firstOtpInput = document.getElementById('otp-0');
+      if (firstOtpInput) {
+        setTimeout(() => firstOtpInput.focus(), 100);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOtpChange = (index, value) => {
+    // Only allow numbers
+    if (!/^\d*$/.test(value)) return;
+    
+    const newOtp = [...otp];
+    newOtp[index] = value;
+    setOtp(newOtp);
+    
+    // Auto-focus next input
+    if (value && index < 5) {
+      const nextInput = document.getElementById(`otp-${index + 1}`);
+      if (nextInput) nextInput.focus();
+    }
+  };
+
+  const handleOtpKeyDown = (index, e) => {
+    if (e.key === 'Backspace' && !otp[index] && index > 0) {
+      const prevInput = document.getElementById(`otp-${index - 1}`);
+      if (prevInput) prevInput.focus();
+    }
+  };
+
+  // FIXED: Updated resend OTP function using correct API endpoints
+  const handleResendOtp = async () => {
+    if (!canResendOtp) return;
+    
+    setLoading(true);
+    try {
+      if (contactMethod === 'email') {
+        // Use POST request for email OTP as per API documentation
+        const response = await apiClient.post(`/otp/emailOtp/send?email=${encodeURIComponent(formData.email)}`, {});
+        
+        console.log('Email OTP Response:', response.data);
+        toast.success('OTP sent to your email!', {
+          position: "top-right",
+          autoClose: 3000,
+          style: { background: "#10B981", color: "#fff" }
+        });
+      } else {
+        // Use POST request for phone OTP as per API documentation
+        const response = await apiClient.post(`/otp/phone/send?phone=${formData.mobile}`, {});
+        
+        console.log('Phone OTP Response:', response.data);
+        toast.success('OTP sent to your mobile number!', {
+          position: "top-right",
+          autoClose: 3000,
+          style: { background: "#10B981", color: "#fff" }
+        });
+      }
+
+      // Reset timer and clear OTP
+      setOtpTimer(600);
+      setCanResendOtp(false);
+      setOtp(['', '', '', '', '', '']);
+      
+    } catch (err) {
+      console.error('Resend OTP error:', err);
+      
+      let errorMessage = 'Failed to resend OTP. Please try again.';
+      
+      // Handle specific error cases
+      if (err.response?.status === 429) {
+        errorMessage = 'Too many requests. Please wait before requesting another OTP.';
+      } else if (err.response?.status === 400) {
+        errorMessage = 'Invalid request. Please check your information.';
+      } else if (err.response?.status === 404) {
+        errorMessage = 'Service not found. Please try again later.';
+      } else if (err.response?.status >= 500) {
+        errorMessage = 'Server error. Please try again later.';
+      }
+      
+      toast.error(errorMessage, {
+        position: "top-right",
+        autoClose: 3000,
+        style: { background: "#EF4444", color: "#fff" }
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatTime = (seconds) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
   const renderModalContent = () => {
@@ -539,28 +737,7 @@ const openModal = (type) => {
 
   
 
-  // Handle resend email
-  const handleResendEmail = async () => {
-    try {
-      setLoading(true);
-      // Add your resend email API call here
-      // await apiClient.post('/auth/resend-verification', { email: formData.email });
-      
-      toast.success('Verification email resent successfully!', {
-        position: "top-right",
-        autoClose: 3000,
-        style: { background: "#10B981", color: "#fff" }
-      });
-    } catch (err) {
-      toast.error('Failed to resend email. Please try again.', {
-        position: "top-right",
-        autoClose: 3000,
-        style: { background: "#EF4444", color: "#fff" }
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  
 
   // Animation variants
   const containerVariants = {
@@ -1215,69 +1392,143 @@ const openModal = (type) => {
                   </motion.form>
                 )}
 
-                {/* Step 3: Email Verification */}
-                {step === 3 && (
-                  <motion.div
-                    key="step3"
-                    initial="hidden"
-                    animate="visible"
-                    exit="exit"
-                    variants={slideVariants}
-                    className="text-center space-y-6"
-                  >
-                    <div className="w-20 h-20 mx-auto bg-green-100 rounded-full flex items-center justify-center">
-                      <svg className="w-10 h-10 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                      </svg>
-                    </div>
-                    
-                    <div>
-                      <h3 className="text-xl font-semibold text-gray-800 mb-2">
-                        Check Your Email
-                      </h3>
-                      <p className="text-gray-600 mb-4">
-                        We've sent a verification link to <strong>{formData.email}</strong>
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        Please click the link in your email to activate your account. 
-                        The link will expire in 10 minutes.
-                      </p>
-                    </div>
+             
+                {/* Step 3: OTP Verification - REPLACE YOUR EXISTING STEP 3 */}
+{step === 3 && (
+  <motion.div
+    key="step3"
+    initial="hidden"
+    animate="visible"
+    exit="exit"
+    variants={slideVariants}
+    className="text-center space-y-6"
+  >
+    <div className="mb-8">
+      <motion.div
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        transition={{ delay: 0.2 }}
+        className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4"
+      >
+        <svg className="w-10 h-10 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+        </svg>
+      </motion.div>
+      
+      <h3 className="text-2xl font-semibold text-gray-800 mb-2">
+        Verify Your Account
+      </h3>
+      
+      <p className="text-gray-600">
+        We've sent a 6-digit OTP to your {contactMethod === 'email' ? 'email' : 'mobile number'}
+      </p>
+      
+      <p className="text-sm font-medium text-gray-800 mt-2">
+        {contactMethod === 'email' ? formData.email : formData.mobile}
+      </p>
+    </div>
 
-                    <div className="space-y-4">
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={handleResendEmail}
-                        disabled={loading}
-                        className="w-full bg-indigo-600 text-white py-3 px-4 rounded-lg transition duration-300 ease-in-out hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {loading ? 'Sending...' : 'Resend Verification Email'}
-                      </motion.button>
-                      
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => navigate('/signin')}
-                        className="w-full bg-gray-100 text-gray-800 py-3 px-4 rounded-lg transition duration-300 ease-in-out hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-opacity-50"
-                      >
-                        Go to Sign In
-                      </motion.button>
-                    </div>
+    {/* OTP Input Fields */}
+    <div className="flex justify-center space-x-3 mb-6">
+      {otp.map((digit, index) => (
+        <motion.input
+          key={index}
+          id={`otp-${index}`}
+          type="text"
+          maxLength="1"
+          value={digit}
+          onChange={(e) => handleOtpChange(index, e.target.value)}
+          onKeyDown={(e) => handleOtpKeyDown(index, e)}
+          className="w-12 h-12 text-center text-lg font-semibold border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none transition-colors"
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: index * 0.1 }}
+        />
+      ))}
+    </div>
 
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <div className="flex items-start space-x-2">
-                        <svg className="w-5 h-5 text-blue-600 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <div className="text-sm text-blue-800">
-                          <p className="font-medium">Didn't receive the email?</p>
-                          <p>Check your spam folder or try resending the verification email.</p>
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
+    {/* Timer Display */}
+    <div className="mb-6">
+      {otpTimer > 0 ? (
+        <p className="text-sm text-gray-600">
+          OTP expires in: <span className="font-semibold text-indigo-600">{formatTime(otpTimer)}</span>
+        </p>
+      ) : (
+        <p className="text-sm text-red-600">
+          OTP has expired. Please request a new one.
+        </p>
+      )}
+    </div>
+
+    {/* Action Buttons */}
+    <div className="space-y-4">
+      <motion.button
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        onClick={verifyOTP}
+        disabled={loading || otp.join('').length !== 6}
+        className="w-full bg-indigo-600 text-white py-3 px-4 rounded-lg transition duration-300 ease-in-out hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {loading ? (
+          <div className="flex items-center justify-center">
+            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Verifying...
+          </div>
+        ) : (
+          'Verify OTP'
+        )}
+      </motion.button>
+
+      {/* Resend OTP Button */}
+      <div className="text-center">
+        <span className="text-sm text-gray-600">Didn't receive the OTP? </span>
+        <button
+          onClick={handleResendOtp}
+          disabled={!canResendOtp || loading}
+          className={`text-sm font-medium transition duration-200 ${
+            canResendOtp && !loading
+              ? 'text-indigo-600 hover:text-indigo-800 cursor-pointer'
+              : 'text-gray-400 cursor-not-allowed'
+          }`}
+        >
+          Resend OTP
+        </button>
+      </div>
+    </div>
+
+    {/* Back Button */}
+    <div className="pt-4">
+      <motion.button
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        type="button"
+        onClick={() => {
+          setStep(2);
+          setOtp(['', '', '', '', '', '']);
+          setOtpTimer(0);
+          setCanResendOtp(false);
+        }}
+        className="text-sm text-gray-600 hover:text-gray-800 transition duration-200"
+      >
+        ← Back to registration
+      </motion.button>
+    </div>
+
+    {/* Error Display */}
+    {errors.general && (
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-red-50 border border-red-200 rounded-lg p-3"
+      >
+        <p className="text-sm text-red-600">{errors.general}</p>
+      </motion.div>
+    )}
+  </motion.div>
+)}
               </AnimatePresence>
             </div>
           </motion.div>
@@ -1285,7 +1536,13 @@ const openModal = (type) => {
         
        
       </div>
-     
+     <footer className="w-full bg-gray-100 border-t border-gray-200">
+      <div className="max-w-7xl mx-auto px-6 py-4">
+        <div className="text-center text-gray-600 text-sm">
+          © {currentYear} SiliconMount Tech Services Pvt. Ltd. All rights reserved.
+        </div>
+      </div>
+    </footer>
     </div>
   );
 };

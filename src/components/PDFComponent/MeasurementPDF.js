@@ -20,6 +20,26 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#000',
   },
+  // Watermark styles - similar to HTML preview
+  watermark: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 999,
+    pointerEvents: 'none',
+  },
+  watermarkText: {
+    fontSize: 72,
+    fontWeight: 'bold',
+    color: 'rgba(255, 0, 0, 0.15)',
+    letterSpacing: 8,
+    transform: 'rotate(-45deg)',
+  },
   workNameHeader: {
     marginTop: 10,
     fontSize: 11,
@@ -70,6 +90,7 @@ const styles = StyleSheet.create({
   lastTableCol: {
     padding: 3,
     color: '#000000',
+    borderRightWidth: 0,
   },
   srNoCol: { width: '8%' },
   itemNoCol: { width: '10%' },
@@ -124,6 +145,9 @@ const styles = StyleSheet.create({
     marginTop: 0,
     paddingTop: 2,
     backgroundColor: '#ffffff',
+    borderTopWidth: 1,
+    borderTopColor: '#000',
+    borderTopStyle: 'solid',
   },
   netQuantityText: {
     textAlign: 'right',
@@ -148,9 +172,23 @@ const styles = StyleSheet.create({
     borderTopStyle: 'solid',
     backgroundColor: '#ffffff',
   },
-  groupHeadingRow: {
-    backgroundColor: '#f9f9f9',
+  // Updated floor grouping styles
+  floorGroupingRow: {
+    flexDirection: 'row',
+    backgroundColor: '#f5f5f5',
     fontWeight: 'bold',
+    borderTopWidth: 0.5,
+    borderTopColor: '#000',
+    borderTopStyle: 'solid',
+    marginTop: 0,
+    marginBottom: 0,
+  },
+  floorGroupingText: {
+    fontWeight: 'bold',
+    color: '#000000',
+    fontSize: 10,
+    textAlign: 'left',
+    paddingLeft: 5,
   },
   subTotalRow: {
     borderTopWidth: 0.5,
@@ -158,7 +196,56 @@ const styles = StyleSheet.create({
     borderTopColor: '#cccccc',
     fontWeight: 'bold',
     backgroundColor: '#ffffff',
-  }
+  },
+  // Signature styles
+  signatureSection: {
+    marginTop: 30,
+    marginBottom: 20,
+    paddingTop: 15,
+    borderTopWidth: 1,
+    borderTopColor: '#000',
+    borderTopStyle: 'solid',
+  },
+  signatureContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    marginTop: 20,
+  },
+  signatureBox: {
+    width: '45%',
+    alignItems: 'center',
+  },
+  signatureLine: {
+    width: '100%',
+    height: 40,
+    borderBottomWidth: 1,
+    borderBottomColor: '#000',
+    borderBottomStyle: 'solid',
+    marginBottom: 5,
+    justifyContent: 'flex-end',
+    paddingBottom: 5,
+    paddingHorizontal: 5,
+  },
+  signatureName: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    color: '#000000',
+  },
+  signatureLabel: {
+    fontSize: 9,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    color: '#000000',
+    marginTop: 5,
+  },
+  signatureSubLabel: {
+    fontSize: 8,
+    textAlign: 'center',
+    color: '#000000',
+    marginTop: 2,
+  },
 });
 
 // Function to calculate total quantity for an item's measurements
@@ -194,7 +281,7 @@ const calculateGroupSubtotal = (measurements) => {
   return measurements.reduce((total, m) => total + (parseFloat(m.quantity) || 0), 0).toFixed(2);
 };
 
-// Helper function to display value or empty space (no dash for main item description)
+// Helper function to display value or empty space
 const displayValue = (value, showDashForEmpty = true, isItemDescription = false) => {
   if (value && value.toString().trim() !== '') {
     return value;
@@ -210,10 +297,23 @@ const displayValue = (value, showDashForEmpty = true, isItemDescription = false)
 };
 
 // Main Measurement PDF Document Component
-export const MeasurementPDF = ({ workOrderId, nameOfWork, items }) => (
+export const MeasurementPDF = ({ 
+  workOrderId, 
+  nameOfWork, 
+  items, 
+  signatures = { preparedBy: '', checkedBy: '' }, 
+  showWatermark = false 
+}) => (
   <Page size="A4" style={styles.page}>
     {/* Border around the page */}
     <View style={styles.border} />
+    
+    {/* Watermark - positioned behind all content */}
+    {showWatermark && (
+      <View style={styles.watermark}>
+        <Text style={styles.watermarkText}>DEMO</Text>
+      </View>
+    )}
     
     {/* Work Name Header */}
     <Text style={styles.workNameHeader}>NAME OF WORK: {nameOfWork.toUpperCase()}</Text>
@@ -290,17 +390,17 @@ export const MeasurementPDF = ({ workOrderId, nameOfWork, items }) => (
               
               return (
                 <React.Fragment key={`floor-${floorIdx}`}>
-                  {/* Floor Group Heading - only show if it's not the general group or has a meaningful floor value */}
+                  {/* Floor Group Heading Row - spanning across all columns like in your PDF */}
                   {floorKey !== 'general' && (
-                    <View style={[styles.tableRow, styles.groupHeadingRow]} wrap={false}>
+                    <View style={[styles.floorGroupingRow]} wrap={false}>
                       <View style={[styles.tableCol, styles.srNoCol]}>
                         <Text></Text>
                       </View>
                       <View style={[styles.tableCol, styles.itemNoCol]}>
                         <Text></Text>
                       </View>
-                      <View style={[styles.tableCol, { width: '66%' }, styles.descriptionText]}>
-                        <Text style={{ fontWeight: 'bold', color: '#000000' }}>{floorKey}</Text>
+                      <View style={[styles.tableCol, { width: '66%' }]}>
+                        <Text style={styles.floorGroupingText}>{floorKey}</Text>
                       </View>
                       <View style={[styles.tableCol, styles.qtyCol, styles.lastTableCol]}>
                         <Text></Text>
@@ -338,8 +438,8 @@ export const MeasurementPDF = ({ workOrderId, nameOfWork, items }) => (
                     </View>
                   ))}
                   
-                  {/* Floor Subtotal Row - only show if it's not the general group */}
-                  {floorKey !== 'general' && (
+                  {/* Floor Subtotal Row - only show if it's not the general group and has multiple measurements */}
+                  {floorKey !== 'general' && floorMeasurements.length > 1 && (
                     <View style={[styles.tableRow, styles.subTotalRow]} wrap={false}>
                       <View style={[styles.tableCol, styles.srNoCol]}>
                         <Text></Text>
@@ -348,10 +448,10 @@ export const MeasurementPDF = ({ workOrderId, nameOfWork, items }) => (
                         <Text></Text>
                       </View>
                       <View style={[styles.tableCol, { width: '58%' }, styles.rightAlign]}>
-                        <Text>Subtotal for {floorKey}:</Text>
+                        <Text style={{ fontWeight: 'bold' }}>Subtotal for {floorKey}:</Text>
                       </View>
                       <View style={[styles.tableCol, styles.qtyCol, styles.centerAlign, styles.lastTableCol]}>
-                        <Text>{groupSubtotal}</Text>
+                        <Text style={{ fontWeight: 'bold' }}>{groupSubtotal}</Text>
                       </View>
                     </View>
                   )}
@@ -384,6 +484,33 @@ export const MeasurementPDF = ({ workOrderId, nameOfWork, items }) => (
           </React.Fragment>
         );
       })}
+    </View>
+    
+    {/* Signature Section */}
+    <View style={styles.signatureSection}>
+      <View style={styles.signatureContainer}>
+        {/* Prepared By Signature */}
+        <View style={styles.signatureBox}>
+          <View style={styles.signatureLine}>
+            {/* Empty signature line */}
+          </View>
+          <Text style={styles.signatureLabel}>PREPARED BY</Text>
+          {signatures.preparedBy && (
+            <Text style={styles.signatureName}>{signatures.preparedBy}</Text>
+          )}
+        </View>
+               
+        {/* Checked By Signature */}
+        <View style={styles.signatureBox}>
+          <View style={styles.signatureLine}>
+            {/* Empty signature line */}
+          </View>
+          <Text style={styles.signatureLabel}>CHECKED BY</Text>
+          {signatures.checkedBy && (
+            <Text style={styles.signatureName}>{signatures.checkedBy}</Text>
+          )}
+        </View>
+      </View>
     </View>
     
     {/* Page Number */}
